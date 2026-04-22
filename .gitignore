@@ -1,2 +1,5 @@
 seed.sql
 scripts/
+test-core-api.sh
+test-api.sh
+openapi.yaml
