@@ -49,12 +49,10 @@ type Artist struct {
 	SpotifyID      *string    `json:"spotifyId"`
 	Countries      []Country  `json:"countries"`
 	ListenLabels   []Label    `json:"listenLabels"`
-	Description    *string    `json:"description"`
-	DescriptionEn  *string    `json:"descriptionEn"`
-	CreatedTime    *time.Time `json:"createdTime"`
-	LastEditedTime *time.Time `json:"lastEditedTime"`
-	CreatedAt      time.Time  `json:"createdAt"`
-	UpdatedAt      time.Time  `json:"updatedAt"`
+	Description   *string   `json:"description"`
+	DescriptionEn *string   `json:"descriptionEn"`
+	CreatedAt     time.Time `json:"createdAt"`
+	UpdatedAt     time.Time `json:"updatedAt"`
 }
 
 type Pagination struct {

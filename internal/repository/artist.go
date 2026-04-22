@@ -32,19 +32,18 @@ func (r *ArtistRepo) GetByID(ctx context.Context, id int) (*domain.Artist, error
 		avatarURL, descUA, descEN       *string
 		name                            string
 		countries                       []string
-		notionCreatedAt, notionEditedAt *time.Time
-		createdAt, updatedAt            time.Time
+		createdAt, updatedAt time.Time
 	)
 	err := r.db.QueryRow(ctx, `
 		SELECT id, name, link, spotify_id, avatar_url,
 		       description_ua, description_en, countries,
-		       notion_created_at, notion_edited_at, created_at, updated_at
+		       created_at, updated_at
 		FROM artists
 		WHERE id = $1
 	`, id).Scan(
 		&aid, &name, &link, &spotifyID, &avatarURL,
 		&descUA, &descEN, &countries,
-		&notionCreatedAt, &notionEditedAt, &createdAt, &updatedAt,
+		&createdAt, &updatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -65,7 +64,7 @@ func (r *ArtistRepo) GetByID(ctx context.Context, id int) (*domain.Artist, error
 
 	a := buildArtist(aid, name, link, spotifyID, avatarURL, descUA, descEN,
 		resolvecountries(countries, countryLookup),
-		notionCreatedAt, notionEditedAt, createdAt, updatedAt,
+		createdAt, updatedAt,
 		labels[aid])
 	return &a, nil
 }
@@ -121,7 +120,7 @@ func (r *ArtistRepo) GetAll(ctx context.Context, p domain.ListArtistsParams) (*d
 	if len(orderParts) == 0 {
 		orderParts = []string{"a.total_priority DESC"}
 	}
-	orderParts = append(orderParts, "a.notion_id DESC")
+	orderParts = append(orderParts, "a.id ASC")
 	orderClause := "ORDER BY " + strings.Join(orderParts, ", ")
 
 	limit := p.Limit
@@ -133,7 +132,7 @@ func (r *ArtistRepo) GetAll(ctx context.Context, p domain.ListArtistsParams) (*d
 		SELECT
 			a.id, a.name, a.link, a.spotify_id, a.avatar_url,
 			a.description_ua, a.description_en, a.countries,
-			a.notion_created_at, a.notion_edited_at, a.created_at, a.updated_at,
+			a.created_at, a.updated_at,
 			COUNT(*) OVER() AS total_count
 		FROM artists a
 		%s
@@ -155,9 +154,8 @@ func (r *ArtistRepo) GetAll(ctx context.Context, p domain.ListArtistsParams) (*d
 		link, spotifyID, avatarURL      *string
 		descUA, descEN                  *string
 		rawCountries                    []string
-		notionCreatedAt, notionEditedAt *time.Time
-		createdAt, updatedAt            time.Time
-		totalCount                      int
+		createdAt, updatedAt time.Time
+		totalCount           int
 	}
 
 	var (
@@ -172,7 +170,7 @@ func (r *ArtistRepo) GetAll(ctx context.Context, p domain.ListArtistsParams) (*d
 		if err := rows.Scan(
 			&r.id, &r.name, &r.link, &r.spotifyID, &r.avatarURL,
 			&r.descUA, &r.descEN, &r.rawCountries,
-			&r.notionCreatedAt, &r.notionEditedAt, &r.createdAt, &r.updatedAt,
+			&r.createdAt, &r.updatedAt,
 			&r.totalCount,
 		); err != nil {
 			return nil, err
@@ -212,7 +210,7 @@ func (r *ArtistRepo) GetAll(ctx context.Context, p domain.ListArtistsParams) (*d
 			r.id, r.name, r.link, r.spotifyID, r.avatarURL,
 			r.descUA, r.descEN,
 			resolvecountries(r.rawCountries, countryLookup),
-			r.notionCreatedAt, r.notionEditedAt, r.createdAt, r.updatedAt,
+			r.createdAt, r.updatedAt,
 			labelsByArtist[r.id],
 		)
 	}
@@ -326,7 +324,6 @@ func buildArtist(
 	name string,
 	link, spotifyID, avatarURL, descUA, descEN *string,
 	countries []domain.Country,
-	notionCreatedAt, notionEditedAt *time.Time,
 	createdAt, updatedAt time.Time,
 	labels []domain.Label,
 ) domain.Artist {
@@ -334,19 +331,17 @@ func buildArtist(
 		labels = []domain.Label{}
 	}
 	return domain.Artist{
-		ID:             strconv.Itoa(id),
-		Name:           name,
-		Link:           link,
-		SpotifyID:      spotifyID,
-		AvatarURL:      avatarURL,
-		Countries:      countries,
-		ListenLabels:   labels,
-		Description:    descUA,
-		DescriptionEn:  descEN,
-		CreatedTime:    notionCreatedAt,
-		LastEditedTime: notionEditedAt,
-		CreatedAt:      createdAt,
-		UpdatedAt:      updatedAt,
+		ID:            strconv.Itoa(id),
+		Name:          name,
+		Link:          link,
+		SpotifyID:     spotifyID,
+		AvatarURL:     avatarURL,
+		Countries:     countries,
+		ListenLabels:  labels,
+		Description:   descUA,
+		DescriptionEn: descEN,
+		CreatedAt:     createdAt,
+		UpdatedAt:     updatedAt,
 	}
 }
 
