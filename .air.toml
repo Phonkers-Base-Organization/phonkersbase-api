@@ -1,0 +1,12 @@
+[build]
+  cmd = "go build -o ./tmp/main ./cmd/api"
+  bin = "./tmp/main"
+  include_ext = ["go", "sql"]
+  exclude_dir = ["tmp"]
+  delay = 500
+
+[log]
+  time = false
+
+[misc]
+  clean_on_exit = true
