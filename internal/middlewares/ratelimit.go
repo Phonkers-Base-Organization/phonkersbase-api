@@ -26,12 +26,13 @@ func RateLimitRequests() gin.HandlerFunc {
 		if _, exists := limiter[ip]; !exists {
 			limiter[ip] = rate.NewLimiter(rate.Every(time.Minute/time.Duration(RequestsPerMinute)), RequestsPerMinute)
 		}
-		mu.Unlock()
-
+		
 		if !limiter[ip].Allow() {
 			c.AbortWithStatus(429)
+			mu.Unlock()
 			return
 		}
+		mu.Unlock()
 
 		c.Next()
 	}
@@ -43,7 +44,8 @@ func Cleanup(rlMap map[string]*rate.Limiter, mu *sync.Mutex) {
 		mu.Lock()
 		for ip, limiter := range rlMap {
 			// Remove limiters that haven't been used recently
-			if limiter.AllowN(time.Now(), RequestsPerMinute) {
+			
+			if limiter.Tokens() >= float64(RequestsPerMinute) {
 				delete(rlMap, ip)
 			}
 		}

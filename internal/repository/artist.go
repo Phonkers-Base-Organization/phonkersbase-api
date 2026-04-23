@@ -27,12 +27,12 @@ func NewArtistRepo(db *pgxpool.Pool) *ArtistRepo {
 
 func (r *ArtistRepo) GetByID(ctx context.Context, id int) (*domain.Artist, error) {
 	var (
-		aid                             int
-		link, spotifyID                 *string
-		avatarURL, descUA, descEN       *string
-		name                            string
-		countries                       []string
-		createdAt, updatedAt time.Time
+		aid                       int
+		link, spotifyID           *string
+		avatarURL, descUA, descEN *string
+		name                      string
+		countries                 []string
+		createdAt, updatedAt      time.Time
 	)
 	err := r.db.QueryRow(ctx, `
 		SELECT id, name, link, spotify_id, avatar_url,
@@ -149,13 +149,13 @@ func (r *ArtistRepo) GetAll(ctx context.Context, p domain.ListArtistsParams) (*d
 	defer rows.Close()
 
 	type rawRow struct {
-		id                              int
-		name                            string
-		link, spotifyID, avatarURL      *string
-		descUA, descEN                  *string
-		rawCountries                    []string
-		createdAt, updatedAt time.Time
-		totalCount           int
+		id                         int
+		name                       string
+		link, spotifyID, avatarURL *string
+		descUA, descEN             *string
+		rawCountries               []string
+		createdAt, updatedAt       time.Time
+		totalCount                 int
 	}
 
 	var (

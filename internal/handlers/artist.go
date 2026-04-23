@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -9,7 +8,6 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/PhonkersBase/base-api2/internal/domain"
-	"github.com/PhonkersBase/base-api2/internal/repository"
 )
 
 func (h *Handler) GetArtists(c *gin.Context) {
@@ -54,25 +52,6 @@ func (h *Handler) GetArtists(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, result)
-}
-
-func (h *Handler) GetArtist(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, errJSON("invalid id"))
-		return
-	}
-
-	artist, err := h.artists.GetByID(c.Request.Context(), id)
-	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
-			c.JSON(http.StatusNotFound, errJSON("artist not found"))
-			return
-		}
-		c.JSON(http.StatusInternalServerError, errJSON(err.Error()))
-		return
-	}
-	c.JSON(http.StatusOK, artist)
 }
 
 func splitCSV(s string) []string {
