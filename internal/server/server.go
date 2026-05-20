@@ -2,22 +2,22 @@ package server
 
 import (
 	"context"
+	"net/http"
 	"os"
 	"os/signal"
-	"net/http"
 	"time"
 
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/tern/v2/migrate"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 
 	"github.com/PhonkersBase/base-api2/internal/config"
 	"github.com/PhonkersBase/base-api2/internal/handlers"
+	"github.com/PhonkersBase/base-api2/internal/middlewares"
 	"github.com/PhonkersBase/base-api2/internal/migrations"
 	"github.com/PhonkersBase/base-api2/internal/repository"
-	"github.com/PhonkersBase/base-api2/internal/middlewares"
 )
 
 func Run() error {
@@ -43,7 +43,7 @@ func Run() error {
 		return err
 	}
 	defer dbpool.Close()
-	
+
 	if err := runMigrations(initCtx, dbpool); err != nil {
 		return err
 	}
@@ -127,7 +127,6 @@ func runMigrations(ctx context.Context, db *pgxpool.Pool) error {
 	}
 	return m.Migrate(ctx)
 }
-
 
 func logger(skipPaths ...string) gin.HandlerFunc {
 	skip := make(map[string]struct{}, len(skipPaths))

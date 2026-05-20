@@ -31,9 +31,9 @@ func (r *CountryRepo) GetAll(ctx context.Context) ([]domain.Country, error) {
 	countries := []domain.Country{}
 	for rows.Next() {
 		var (
-			id                   int
-			name, originalName   string
-			c                    domain.Country
+			id                 int
+			name, originalName string
+			c                  domain.Country
 		)
 		if err := rows.Scan(&id, &name, &originalName, &c.CreatedAt, &c.UpdatedAt); err != nil {
 			return nil, err

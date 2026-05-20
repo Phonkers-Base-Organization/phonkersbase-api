@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+
 	"github.com/rs/zerolog/log"
 
 	"github.com/gin-gonic/gin"

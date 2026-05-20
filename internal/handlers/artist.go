@@ -5,9 +5,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/rs/zerolog/log"
-	"github.com/gin-gonic/gin"
 	"github.com/PhonkersBase/base-api2/internal/domain"
+	"github.com/gin-gonic/gin"
+	"github.com/rs/zerolog/log"
 )
 
 func (h *Handler) GetArtists(c *gin.Context) {

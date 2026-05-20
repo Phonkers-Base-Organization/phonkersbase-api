@@ -42,13 +42,13 @@ type Label struct {
 }
 
 type Artist struct {
-	ID             string     `json:"id"`
-	Name           string     `json:"name"`
-	Link           *string    `json:"link"`
-	AvatarURL      *string    `json:"avatarUrl"`
-	SpotifyID      *string    `json:"spotifyId"`
-	Countries      []Country  `json:"countries"`
-	ListenLabels   []Label    `json:"listenLabels"`
+	ID            string    `json:"id"`
+	Name          string    `json:"name"`
+	Link          *string   `json:"link"`
+	AvatarURL     *string   `json:"avatarUrl"`
+	SpotifyID     *string   `json:"spotifyId"`
+	Countries     []Country `json:"countries"`
+	ListenLabels  []Label   `json:"listenLabels"`
 	Description   *string   `json:"description"`
 	DescriptionEn *string   `json:"descriptionEn"`
 	CreatedAt     time.Time `json:"createdAt"`

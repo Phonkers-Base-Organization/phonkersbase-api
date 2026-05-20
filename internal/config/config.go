@@ -8,12 +8,12 @@ import (
 )
 
 type Config struct {
-	DatabaseURL  string `validate:"required,uri"`
+	DatabaseURL string `validate:"required,uri"`
 }
 
 func Load() (*Config, error) {
 	config := &Config{
-		DatabaseURL:         os.Getenv("DB_URL"),
+		DatabaseURL: os.Getenv("DB_URL"),
 	}
 
 	// Validate the configuration
