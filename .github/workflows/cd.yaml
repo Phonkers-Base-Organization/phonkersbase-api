@@ -32,7 +32,7 @@ jobs:
         # Read changed against latest image
         run: |
           SHA="${{ github.event.workflow_run.head_sha }}"
-          BEFORE=$(docker inspect ghcr.io/${{ vars.REPOSITORY_NAME_LOWERCASE }}/api:latest --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')
+          BEFORE=$(skopeo inspect --format '{{index .Labels "org.opencontainers.image.revision"}}' docker://ghcr.io/${{ vars.REPOSITORY_NAME_LOWERCASE }}/api:latest 2>/dev/null || echo "")
           if [ -z "$BEFORE" ] || [ "$BEFORE" = "$SHA" ]; then
             echo "api=true" >> "$GITHUB_OUTPUT"
             exit 0
