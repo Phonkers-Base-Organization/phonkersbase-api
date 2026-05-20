@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/rs/zerolog/log"
 	"github.com/gin-gonic/gin"
-
 	"github.com/PhonkersBase/base-api2/internal/domain"
 )
 
@@ -48,7 +48,8 @@ func (h *Handler) GetArtists(c *gin.Context) {
 
 	result, err := h.artists.GetAll(c.Request.Context(), p)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, errJSON(err.Error()))
+		log.Error().Err(err).Msg("failed to get artists")
+		c.Status(http.StatusInternalServerError)
 		return
 	}
 	c.JSON(http.StatusOK, result)

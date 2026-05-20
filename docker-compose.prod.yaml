@@ -1,0 +1,34 @@
+services:
+  api:
+    image: ghcr.io/${GITHUB_REPOSITORY}/api:latest
+    environment:
+      PORT: 8080
+      GIN_MODE: release
+      DB_URL: postgres://app:app@postgres:5432/app?sslmode=disable
+    healthcheck:      
+      test: ["CMD", "wget", "-qO-", "http://api:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: app
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

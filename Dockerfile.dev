@@ -1,0 +1,7 @@
+# Dev with hot reload
+FROM golang:1.26.2-alpine
+WORKDIR /build
+RUN go install github.com/air-verse/air@v1.65.1
+COPY go.mod go.sum ./
+RUN go mod download
+CMD ["air", "--build.cmd", "go build -o ./tmp/main ./cmd/api", "--build.entrypoint", "./tmp/main"]

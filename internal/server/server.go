@@ -3,6 +3,8 @@ package server
 import (
 	"context"
 	"os"
+	"os/signal"
+	"net/http"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -40,6 +42,8 @@ func Run() error {
 	if err != nil {
 		return err
 	}
+	defer dbpool.Close()
+	
 	if err := runMigrations(initCtx, dbpool); err != nil {
 		return err
 	}
@@ -51,7 +55,12 @@ func Run() error {
 		repository.NewLabelRepo(dbpool),
 	)
 
-	router := gin.Default()
+	router := gin.New()
+	router.Use(gin.Recovery())
+	router.Use(logger("/", "/health", "/metrics"))
+	router.GET("/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{"status": "ok"})
+	})
 	v1 := router.Group("/api/v1")
 	v1.Use(middlewares.RateLimitRequests())
 	{
@@ -60,9 +69,38 @@ func Run() error {
 		v1.GET("/label/all", h.GetLabels)
 		v1.POST("/app/dev/force-sync", h.ForceSync)
 	}
+	errCh := make(chan error, 1)
+	srv := &http.Server{
+		Addr:    ":" + port,
+		Handler: router,
+	}
 
-	log.Info().Str("port", port).Msg("server listening")
-	return router.Run(":" + port)
+	go func() {
+		log.Info().Msgf("starting server on port %s", port)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			errCh <- err
+		}
+	}()
+
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt)
+
+	select {
+	case sig := <-sigCh:
+		log.Info().Msgf("received signal: %s, shutting down server", sig)
+	case err := <-errCh:
+		return err
+	}
+
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer shutdownCancel()
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		return err
+	}
+
+	log.Info().Msg("server gracefully stopped")
+
+	return nil
 }
 
 func initDB(ctx context.Context, databaseURL string) (*pgxpool.Pool, error) {
@@ -88,4 +126,42 @@ func runMigrations(ctx context.Context, db *pgxpool.Pool) error {
 		return err
 	}
 	return m.Migrate(ctx)
+}
+
+
+func logger(skipPaths ...string) gin.HandlerFunc {
+	skip := make(map[string]struct{}, len(skipPaths))
+	for _, p := range skipPaths {
+		skip[p] = struct{}{}
+	}
+
+	return func(c *gin.Context) {
+		start := time.Now()
+		path := c.Request.URL.Path
+		if raw := c.Request.URL.RawQuery; raw != "" {
+			path += "?" + raw
+		}
+
+		c.Next()
+
+		if _, ok := skip[c.Request.URL.Path]; ok {
+			return
+		}
+
+		latency := time.Since(start)
+		status := c.Writer.Status()
+
+		event := log.Info()
+		if status >= 500 {
+			event = log.Error()
+		}
+
+		event.
+			Str("method", c.Request.Method).
+			Str("path", path).
+			Int("status", status).
+			Dur("latency", latency).
+			Str("ip", c.ClientIP()).
+			Msg("request")
+	}
 }
