@@ -1,9 +1,6 @@
 services:
   api:
     image: ghcr.io/${GITHUB_REPOSITORY}/api:latest
-    networks:
-      - traefik-public
-      - internal
     environment:
       PORT: 8080
       GIN_MODE: release
