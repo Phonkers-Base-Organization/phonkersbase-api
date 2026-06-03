@@ -57,8 +57,6 @@ func Run() error {
 		repository.NewSuggestionRepo(dbpool),
 		repository.NewFeedbackRepo(dbpool),
 		cfg.JWTSecret,
-		cfg.SpotifyClientID,
-		cfg.SpotifyClientSecret,
 	)
 
 	router := gin.New()
@@ -98,7 +96,6 @@ func Run() error {
 		protected.PUT("/artist/:id", h.UpdateArtist)
 		protected.DELETE("/artist/:id", h.DeleteArtist)
 		protected.GET("/artist/stats", h.GetArtistStats)
-		protected.GET("/artist/spotify-info/:spotifyId", h.GetSpotifyInfo)
 
 		protected.POST("/label", h.CreateLabel)
 		protected.PUT("/label/:id", h.UpdateLabel)

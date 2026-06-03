@@ -1,9 +1,6 @@
 package handlers
 
 import (
-	"encoding/json"
-	"fmt"
-	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -133,104 +130,6 @@ func (h *Handler) GetArtistStats(c *gin.Context) {
 	c.JSON(http.StatusOK, stats)
 }
 
-func (h *Handler) GetSpotifyInfo(c *gin.Context) {
-	spotifyID := c.Param("spotifyId")
-
-	token, err := h.fetchSpotifyToken()
-	if err != nil {
-		log.Error().Err(err).Msg("failed to fetch spotify token")
-		c.Status(http.StatusInternalServerError)
-		return
-	}
-
-	req, err := http.NewRequestWithContext(c.Request.Context(), http.MethodGet,
-		fmt.Sprintf("https://api.spotify.com/v1/artists/%s", spotifyID), nil)
-	if err != nil {
-		log.Error().Err(err).Msg("failed to build spotify request")
-		c.Status(http.StatusInternalServerError)
-		return
-	}
-	req.Header.Set("Authorization", "Bearer "+token)
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		log.Error().Err(err).Msg("failed to call spotify api")
-		c.Status(http.StatusInternalServerError)
-		return
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode == http.StatusNotFound {
-		c.JSON(http.StatusNotFound, gin.H{"message": "artist not found on Spotify"})
-		return
-	}
-	if resp.StatusCode != http.StatusOK {
-		log.Error().Int("status", resp.StatusCode).Msg("spotify api returned non-200")
-		c.Status(http.StatusInternalServerError)
-		return
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		log.Error().Err(err).Msg("failed to read spotify response")
-		c.Status(http.StatusInternalServerError)
-		return
-	}
-
-	var result struct {
-		Name   string `json:"name"`
-		Images []struct {
-			URL string `json:"url"`
-		} `json:"images"`
-	}
-	if err := json.Unmarshal(body, &result); err != nil {
-		log.Error().Err(err).Msg("failed to parse spotify response")
-		c.Status(http.StatusInternalServerError)
-		return
-	}
-
-	var avatarURL *string
-	if len(result.Images) > 0 {
-		avatarURL = &result.Images[0].URL
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"name":      result.Name,
-		"avatarUrl": avatarURL,
-	})
-}
-
-func (h *Handler) fetchSpotifyToken() (string, error) {
-	req, err := http.NewRequest(http.MethodPost, "https://accounts.spotify.com/api/token",
-		strings.NewReader("grant_type=client_credentials"))
-	if err != nil {
-		return "", err
-	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.SetBasicAuth(h.spotifyClientID, h.spotifyClientSecret)
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-
-	var result struct {
-		AccessToken string `json:"access_token"`
-	}
-	if err := json.Unmarshal(body, &result); err != nil {
-		return "", err
-	}
-	if result.AccessToken == "" {
-		return "", fmt.Errorf("empty access token from spotify")
-	}
-	return result.AccessToken, nil
-}
 
 func splitCSV(s string) []string {
 	parts := strings.Split(s, ",")
