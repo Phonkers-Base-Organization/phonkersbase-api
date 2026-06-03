@@ -24,21 +24,20 @@ type ArtistSource struct {
 }
 
 type Artist struct {
-	ID             string         `json:"id"`
-	Name           string         `json:"name"`
-	Link           *string        `json:"link"`
-	AvatarURL      *string        `json:"avatarUrl"`
-	SpotifyID      *string        `json:"spotifyId"`
-	Countries      []string       `json:"countries"`
-	ListenLabels   []Label        `json:"listenLabels"`
-	Description    *string        `json:"description"`
-	DescriptionEn  *string        `json:"descriptionEn"`
-	PrimaryCountry *string        `json:"primaryCountry"`
-	EvidenceURL    *string        `json:"evidenceUrl"`
-	Notes          *string        `json:"notes"`
-	Sources        []ArtistSource `json:"sources"`
-	CreatedAt      time.Time      `json:"createdAt"`
-	UpdatedAt      time.Time      `json:"updatedAt"`
+	ID            string         `json:"id"`
+	Name          string         `json:"name"`
+	Link          *string        `json:"link"`
+	AvatarURL     *string        `json:"avatarUrl"`
+	SpotifyID     *string        `json:"spotifyId"`
+	Countries     []string       `json:"countries"`
+	ListenLabels  []Label        `json:"listenLabels"`
+	Description   *string        `json:"description"`
+	DescriptionEn *string        `json:"descriptionEn"`
+	EvidenceURL   *string        `json:"evidenceUrl"`
+	Notes         *string        `json:"notes"`
+	Sources       []ArtistSource `json:"sources"`
+	CreatedAt     time.Time      `json:"createdAt"`
+	UpdatedAt     time.Time      `json:"updatedAt"`
 }
 
 type Pagination struct {
@@ -101,18 +100,17 @@ type ArtistStats struct {
 }
 
 type UpsertArtistInput struct {
-	Name           string         `json:"name" binding:"required"`
-	Link           *string        `json:"link"`
-	AvatarURL      *string        `json:"avatarUrl"`
-	SpotifyID      *string        `json:"spotifyId"`
-	Description    *string        `json:"description"`
-	DescriptionEn  *string        `json:"descriptionEn"`
-	PrimaryCountry *string        `json:"primaryCountry"`
-	Countries      []string       `json:"countries"`
-	ListenLabels   []string       `json:"listenLabels"`
-	EvidenceURL    *string        `json:"evidenceUrl"`
-	Notes          *string        `json:"notes"`
-	Sources        []ArtistSource `json:"sources"`
+	Name          string         `json:"name" binding:"required"`
+	Link          *string        `json:"link"`
+	AvatarURL     *string        `json:"avatarUrl"`
+	SpotifyID     *string        `json:"spotifyId"`
+	Description   *string        `json:"description"`
+	DescriptionEn *string        `json:"descriptionEn"`
+	Countries     []string       `json:"countries"`
+	ListenLabels  []string       `json:"listenLabels"`
+	EvidenceURL   *string        `json:"evidenceUrl"`
+	Notes         *string        `json:"notes"`
+	Sources       []ArtistSource `json:"sources"`
 }
 
 type UpsertLabelInput struct {

@@ -39,7 +39,6 @@ UPDATE artists SET countries = ARRAY(
   FROM unnest(countries) AS c
 ) WHERE countries IS NOT NULL AND array_length(countries, 1) > 0;
 
-ALTER TABLE artists ADD COLUMN IF NOT EXISTS primary_country TEXT;
 ALTER TABLE artists ADD COLUMN IF NOT EXISTS evidence_url TEXT;
 ALTER TABLE artists ADD COLUMN IF NOT EXISTS notes TEXT;
 ALTER TABLE artists ADD COLUMN IF NOT EXISTS sources JSONB NOT NULL DEFAULT '[]';
@@ -94,7 +93,6 @@ DROP TABLE IF EXISTS users;
 ALTER TABLE artists DROP COLUMN IF EXISTS sources;
 ALTER TABLE artists DROP COLUMN IF EXISTS notes;
 ALTER TABLE artists DROP COLUMN IF EXISTS evidence_url;
-ALTER TABLE artists DROP COLUMN IF EXISTS primary_country;
 
 CREATE TABLE countries (
     id            SERIAL PRIMARY KEY,

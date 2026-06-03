@@ -28,26 +28,26 @@ func NewArtistRepo(db *pgxpool.Pool) *ArtistRepo {
 
 func (r *ArtistRepo) GetByID(ctx context.Context, id int) (*domain.Artist, error) {
 	var (
-		aid                                    int
-		link, spotifyID                        *string
-		avatarURL, descUA, descEN              *string
-		primaryCountry, evidenceURL, notes     *string
-		name                                   string
-		countries                              []string
-		sourcesRaw                             []byte
-		createdAt, updatedAt                   time.Time
+		aid                        int
+		link, spotifyID            *string
+		avatarURL, descUA, descEN  *string
+		evidenceURL, notes         *string
+		name                       string
+		countries                  []string
+		sourcesRaw                 []byte
+		createdAt, updatedAt       time.Time
 	)
 	err := r.db.QueryRow(ctx, `
 		SELECT id, name, link, spotify_id, avatar_url,
 		       description_ua, description_en, countries,
-		       primary_country, evidence_url, notes, sources,
+		       evidence_url, notes, sources,
 		       created_at, updated_at
 		FROM artists
 		WHERE id = $1
 	`, id).Scan(
 		&aid, &name, &link, &spotifyID, &avatarURL,
 		&descUA, &descEN, &countries,
-		&primaryCountry, &evidenceURL, &notes, &sourcesRaw,
+		&evidenceURL, &notes, &sourcesRaw,
 		&createdAt, &updatedAt,
 	)
 	if err != nil {
@@ -64,7 +64,7 @@ func (r *ArtistRepo) GetByID(ctx context.Context, id int) (*domain.Artist, error
 
 	sources := parseSources(sourcesRaw)
 	a := buildArtist(aid, name, link, spotifyID, avatarURL, descUA, descEN,
-		countries, primaryCountry, evidenceURL, notes, sources,
+		countries, evidenceURL, notes, sources,
 		createdAt, updatedAt,
 		labels[aid])
 	return &a, nil
@@ -208,7 +208,7 @@ func (r *ArtistRepo) GetAll(ctx context.Context, p domain.ListArtistsParams) (*d
 		artists[i] = buildArtist(
 			row.id, row.name, row.link, row.spotifyID, row.avatarURL,
 			row.descUA, row.descEN,
-			row.rawCountries, nil, nil, nil, nil,
+			row.rawCountries, nil, nil, nil,
 			row.createdAt, row.updatedAt,
 			labelsByArtist[row.id],
 		)
@@ -240,7 +240,7 @@ func (r *ArtistRepo) GetAdminAll(ctx context.Context) ([]domain.Artist, error) {
 		SELECT
 			a.id, a.name, a.link, a.spotify_id, a.avatar_url,
 			a.description_ua, a.description_en, a.countries,
-			a.primary_country, a.evidence_url, a.notes, a.sources,
+			a.evidence_url, a.notes, a.sources,
 			a.created_at, a.updated_at
 		FROM artists a
 		ORDER BY a.total_priority DESC, a.id ASC
@@ -251,14 +251,14 @@ func (r *ArtistRepo) GetAdminAll(ctx context.Context) ([]domain.Artist, error) {
 	defer rows.Close()
 
 	type rawRow struct {
-		id                                 int
-		name                               string
-		link, spotifyID, avatarURL         *string
-		descUA, descEN                     *string
-		rawCountries                       []string
-		primaryCountry, evidenceURL, notes *string
-		sourcesRaw                         []byte
-		createdAt, updatedAt               time.Time
+		id                         int
+		name                       string
+		link, spotifyID, avatarURL *string
+		descUA, descEN             *string
+		rawCountries               []string
+		evidenceURL, notes         *string
+		sourcesRaw                 []byte
+		createdAt, updatedAt       time.Time
 	}
 
 	var (
@@ -271,7 +271,7 @@ func (r *ArtistRepo) GetAdminAll(ctx context.Context) ([]domain.Artist, error) {
 		if err := rows.Scan(
 			&row.id, &row.name, &row.link, &row.spotifyID, &row.avatarURL,
 			&row.descUA, &row.descEN, &row.rawCountries,
-			&row.primaryCountry, &row.evidenceURL, &row.notes, &row.sourcesRaw,
+			&row.evidenceURL, &row.notes, &row.sourcesRaw,
 			&row.createdAt, &row.updatedAt,
 		); err != nil {
 			return nil, err
@@ -297,7 +297,7 @@ func (r *ArtistRepo) GetAdminAll(ctx context.Context) ([]domain.Artist, error) {
 		artists[i] = buildArtist(
 			row.id, row.name, row.link, row.spotifyID, row.avatarURL,
 			row.descUA, row.descEN,
-			row.rawCountries, row.primaryCountry, row.evidenceURL, row.notes, sources,
+			row.rawCountries, row.evidenceURL, row.notes, sources,
 			row.createdAt, row.updatedAt,
 			labelsByArtist[row.id],
 		)
@@ -318,13 +318,13 @@ func (r *ArtistRepo) Create(ctx context.Context, input domain.UpsertArtistInput)
 	)
 	err = r.db.QueryRow(ctx, `
 		INSERT INTO artists (name, link, spotify_id, avatar_url, description_ua, description_en,
-			countries, primary_country, evidence_url, notes, sources)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+			countries, evidence_url, notes, sources)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 		RETURNING id, created_at, updated_at
 	`,
 		input.Name, input.Link, input.SpotifyID, input.AvatarURL,
 		input.Description, input.DescriptionEn,
-		input.Countries, input.PrimaryCountry, input.EvidenceURL, input.Notes,
+		input.Countries, input.EvidenceURL, input.Notes,
 		sourcesJSON,
 	).Scan(&id, &createdAt, &updatedAt)
 	if err != nil {
@@ -342,7 +342,7 @@ func (r *ArtistRepo) Create(ctx context.Context, input domain.UpsertArtistInput)
 
 	a := buildArtist(id, input.Name, input.Link, input.SpotifyID, input.AvatarURL,
 		input.Description, input.DescriptionEn,
-		input.Countries, input.PrimaryCountry, input.EvidenceURL, input.Notes, input.Sources,
+		input.Countries, input.EvidenceURL, input.Notes, input.Sources,
 		createdAt, updatedAt,
 		labels[id])
 	return &a, nil
@@ -362,13 +362,13 @@ func (r *ArtistRepo) Update(ctx context.Context, id string, input domain.UpsertA
 		UPDATE artists SET
 			name = $1, link = $2, spotify_id = $3, avatar_url = $4,
 			description_ua = $5, description_en = $6, countries = $7,
-			primary_country = $8, evidence_url = $9, notes = $10, sources = $11
-		WHERE id = $12
+			evidence_url = $8, notes = $9, sources = $10
+		WHERE id = $11
 		RETURNING id, created_at, updated_at
 	`,
 		input.Name, input.Link, input.SpotifyID, input.AvatarURL,
 		input.Description, input.DescriptionEn, input.Countries,
-		input.PrimaryCountry, input.EvidenceURL, input.Notes, sourcesJSON,
+		input.EvidenceURL, input.Notes, sourcesJSON,
 		id,
 	).Scan(&aid, &createdAt, &updatedAt)
 	if err != nil {
@@ -389,7 +389,7 @@ func (r *ArtistRepo) Update(ctx context.Context, id string, input domain.UpsertA
 
 	a := buildArtist(aid, input.Name, input.Link, input.SpotifyID, input.AvatarURL,
 		input.Description, input.DescriptionEn,
-		input.Countries, input.PrimaryCountry, input.EvidenceURL, input.Notes, input.Sources,
+		input.Countries, input.EvidenceURL, input.Notes, input.Sources,
 		createdAt, updatedAt,
 		labels[aid])
 	return &a, nil
@@ -493,7 +493,7 @@ func buildArtist(
 	name string,
 	link, spotifyID, avatarURL, descUA, descEN *string,
 	countries []string,
-	primaryCountry, evidenceURL, notes *string,
+	evidenceURL, notes *string,
 	sources []domain.ArtistSource,
 	createdAt, updatedAt time.Time,
 	labels []domain.Label,
@@ -508,21 +508,20 @@ func buildArtist(
 		sources = []domain.ArtistSource{}
 	}
 	return domain.Artist{
-		ID:             strconv.Itoa(id),
-		Name:           name,
-		Link:           link,
-		SpotifyID:      spotifyID,
-		AvatarURL:      avatarURL,
-		Countries:      countries,
-		ListenLabels:   labels,
-		Description:    descUA,
-		DescriptionEn:  descEN,
-		PrimaryCountry: primaryCountry,
-		EvidenceURL:    evidenceURL,
-		Notes:          notes,
-		Sources:        sources,
-		CreatedAt:      createdAt,
-		UpdatedAt:      updatedAt,
+		ID:            strconv.Itoa(id),
+		Name:          name,
+		Link:          link,
+		SpotifyID:     spotifyID,
+		AvatarURL:     avatarURL,
+		Countries:     countries,
+		ListenLabels:  labels,
+		Description:   descUA,
+		DescriptionEn: descEN,
+		EvidenceURL:   evidenceURL,
+		Notes:         notes,
+		Sources:       sources,
+		CreatedAt:     createdAt,
+		UpdatedAt:     updatedAt,
 	}
 }
 
