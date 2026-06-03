@@ -9,50 +9,36 @@ const (
 	SortDesc SortDirection = "desc"
 )
 
-type LabelName string
-
-const (
-	LabelApproved LabelName = "approved"
-	LabelBlocked  LabelName = "blocked"
-	LabelWarning  LabelName = "warning"
-	LabelUnknown  LabelName = "unknown"
-	LabelPride    LabelName = "pride"
-	LabelBase     LabelName = "base"
-)
-
-type Country struct {
-	ID           string    `json:"id"`
-	Name         string    `json:"name"`
-	OriginalName string    `json:"originalName"`
-	CreatedAt    time.Time `json:"createdAt"`
-	UpdatedAt    time.Time `json:"updatedAt"`
-}
-
-func CountryFromName(name string) Country {
-	return Country{ID: name, Name: name, OriginalName: name}
-}
-
 type Label struct {
 	ID           string    `json:"id"`
-	Name         LabelName `json:"name"`
+	Name         string    `json:"name"`
 	OriginalName string    `json:"originalName"`
 	Priority     int       `json:"priority"`
 	CreatedAt    time.Time `json:"createdAt"`
 	UpdatedAt    time.Time `json:"updatedAt"`
 }
 
+type ArtistSource struct {
+	Name string `json:"name"`
+	URL  string `json:"url"`
+}
+
 type Artist struct {
-	ID            string    `json:"id"`
-	Name          string    `json:"name"`
-	Link          *string   `json:"link"`
-	AvatarURL     *string   `json:"avatarUrl"`
-	SpotifyID     *string   `json:"spotifyId"`
-	Countries     []Country `json:"countries"`
-	ListenLabels  []Label   `json:"listenLabels"`
-	Description   *string   `json:"description"`
-	DescriptionEn *string   `json:"descriptionEn"`
-	CreatedAt     time.Time `json:"createdAt"`
-	UpdatedAt     time.Time `json:"updatedAt"`
+	ID             string         `json:"id"`
+	Name           string         `json:"name"`
+	Link           *string        `json:"link"`
+	AvatarURL      *string        `json:"avatarUrl"`
+	SpotifyID      *string        `json:"spotifyId"`
+	Countries      []string       `json:"countries"`
+	ListenLabels   []Label        `json:"listenLabels"`
+	Description    *string        `json:"description"`
+	DescriptionEn  *string        `json:"descriptionEn"`
+	PrimaryCountry *string        `json:"primaryCountry"`
+	EvidenceURL    *string        `json:"evidenceUrl"`
+	Notes          *string        `json:"notes"`
+	Sources        []ArtistSource `json:"sources"`
+	CreatedAt      time.Time      `json:"createdAt"`
+	UpdatedAt      time.Time      `json:"updatedAt"`
 }
 
 type Pagination struct {
@@ -78,4 +64,59 @@ type ListArtistsParams struct {
 	ByArtist  SortDirection
 	ByCountry SortDirection
 	ByListen  SortDirection
+}
+
+type User struct {
+	ID        string    `json:"id"`
+	Username  string    `json:"username"`
+	Role      string    `json:"role"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+type Suggestion struct {
+	ID           string    `json:"id"`
+	Name         string    `json:"name"`
+	Link         *string   `json:"link"`
+	Countries    []string  `json:"countries"`
+	ListenLabels []string  `json:"listenLabels"`
+	Evidence     *string   `json:"evidence"`
+	Description  *string   `json:"description"`
+	Status       string    `json:"status"`
+	CreatedAt    time.Time `json:"createdAt"`
+	UpdatedAt    time.Time `json:"updatedAt"`
+}
+
+type Feedback struct {
+	ID        string    `json:"id"`
+	Type      string    `json:"type"`
+	Text      string    `json:"text"`
+	Email     *string   `json:"email"`
+	CreatedAt time.Time `json:"createdAt"`
+}
+
+type ArtistStats struct {
+	Total     int     `json:"total"`
+	LastAdded *string `json:"lastAdded"`
+}
+
+type UpsertArtistInput struct {
+	Name           string         `json:"name" binding:"required"`
+	Link           *string        `json:"link"`
+	AvatarURL      *string        `json:"avatarUrl"`
+	SpotifyID      *string        `json:"spotifyId"`
+	Description    *string        `json:"description"`
+	DescriptionEn  *string        `json:"descriptionEn"`
+	PrimaryCountry *string        `json:"primaryCountry"`
+	Countries      []string       `json:"countries"`
+	ListenLabels   []string       `json:"listenLabels"`
+	EvidenceURL    *string        `json:"evidenceUrl"`
+	Notes          *string        `json:"notes"`
+	Sources        []ArtistSource `json:"sources"`
+}
+
+type UpsertLabelInput struct {
+	Name         string `json:"name" binding:"required"`
+	OriginalName string `json:"originalName" binding:"required"`
+	Priority     int    `json:"priority"`
 }

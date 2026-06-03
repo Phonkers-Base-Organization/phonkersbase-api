@@ -3,9 +3,10 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/rs/zerolog/log"
-
+	"github.com/PhonkersBase/base-api2/internal/domain"
+	"github.com/PhonkersBase/base-api2/internal/repository"
 	"github.com/gin-gonic/gin"
+	"github.com/rs/zerolog/log"
 )
 
 func (h *Handler) GetLabels(c *gin.Context) {
@@ -16,4 +17,55 @@ func (h *Handler) GetLabels(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, labels)
+}
+
+func (h *Handler) CreateLabel(c *gin.Context) {
+	var input domain.UpsertLabelInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+		return
+	}
+
+	label, err := h.labels.Create(c.Request.Context(), input)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to create label")
+		c.Status(http.StatusInternalServerError)
+		return
+	}
+	c.JSON(http.StatusCreated, label)
+}
+
+func (h *Handler) UpdateLabel(c *gin.Context) {
+	id := c.Param("id")
+	var input domain.UpsertLabelInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+		return
+	}
+
+	label, err := h.labels.Update(c.Request.Context(), id, input)
+	if err != nil {
+		if err == repository.ErrNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"message": "label not found"})
+			return
+		}
+		log.Error().Err(err).Msg("failed to update label")
+		c.Status(http.StatusInternalServerError)
+		return
+	}
+	c.JSON(http.StatusOK, label)
+}
+
+func (h *Handler) DeleteLabel(c *gin.Context) {
+	id := c.Param("id")
+	if err := h.labels.Delete(c.Request.Context(), id); err != nil {
+		if err == repository.ErrNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"message": "label not found"})
+			return
+		}
+		log.Error().Err(err).Msg("failed to delete label")
+		c.Status(http.StatusInternalServerError)
+		return
+	}
+	c.Status(http.StatusNoContent)
 }

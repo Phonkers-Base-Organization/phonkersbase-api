@@ -5,11 +5,32 @@ import (
 )
 
 type Handler struct {
-	artists   *repository.ArtistRepo
-	countries *repository.CountryRepo
-	labels    *repository.LabelRepo
+	artists             *repository.ArtistRepo
+	labels              *repository.LabelRepo
+	users               *repository.UserRepo
+	suggestions         *repository.SuggestionRepo
+	feedbacks           *repository.FeedbackRepo
+	jwtSecret           string
+	spotifyClientID     string
+	spotifyClientSecret string
 }
 
-func NewHandler(artists *repository.ArtistRepo, countries *repository.CountryRepo, labels *repository.LabelRepo) *Handler {
-	return &Handler{artists: artists, countries: countries, labels: labels}
+func NewHandler(
+	artists *repository.ArtistRepo,
+	labels *repository.LabelRepo,
+	users *repository.UserRepo,
+	suggestions *repository.SuggestionRepo,
+	feedbacks *repository.FeedbackRepo,
+	jwtSecret, spotifyClientID, spotifyClientSecret string,
+) *Handler {
+	return &Handler{
+		artists:             artists,
+		labels:              labels,
+		users:               users,
+		suggestions:         suggestions,
+		feedbacks:           feedbacks,
+		jwtSecret:           jwtSecret,
+		spotifyClientID:     spotifyClientID,
+		spotifyClientSecret: spotifyClientSecret,
+	}
 }

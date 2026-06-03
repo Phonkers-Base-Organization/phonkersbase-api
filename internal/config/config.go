@@ -8,15 +8,26 @@ import (
 )
 
 type Config struct {
-	DatabaseURL string `validate:"required,uri"`
+	DatabaseURL         string `validate:"required,uri"`
+	JWTSecret           string `validate:"required"`
+	SpotifyClientID     string `validate:"required"`
+	SpotifyClientSecret string `validate:"required"`
+	CORSOrigin          string
 }
 
 func Load() (*Config, error) {
 	config := &Config{
-		DatabaseURL: os.Getenv("DB_URL"),
+		DatabaseURL:         os.Getenv("DB_URL"),
+		JWTSecret:           os.Getenv("JWT_SECRET"),
+		SpotifyClientID:     os.Getenv("SPOTIFY_CLIENT_ID"),
+		SpotifyClientSecret: os.Getenv("SPOTIFY_CLIENT_SECRET"),
+		CORSOrigin:          os.Getenv("CORS_ORIGIN"),
 	}
 
-	// Validate the configuration
+	if config.CORSOrigin == "" {
+		config.CORSOrigin = "http://localhost:3000"
+	}
+
 	validate := validator.New()
 	err := validate.Struct(config)
 	if err != nil {
