@@ -79,11 +79,23 @@ func (r *ArtistRepo) GetAll(ctx context.Context, p domain.ListArtistsParams) (*d
 		if p.Locale == "en" {
 			descCol = "a.description_en"
 		}
-		conditions = append(conditions, fmt.Sprintf(
-			"(a.name ILIKE $%d OR %s ILIKE $%d)", n, descCol, n,
-		))
-		args = append(args, "%"+p.Search+"%")
+		searchBase := p.Search
+		if i := strings.Index(searchBase, "?"); i != -1 {
+			searchBase = searchBase[:i]
+		}
+		orClauses := []string{
+			fmt.Sprintf("a.name ILIKE $%d", n),
+			fmt.Sprintf("%s ILIKE $%d", descCol, n),
+			fmt.Sprintf("SPLIT_PART(a.link, '?', 1) ILIKE $%d", n),
+		}
+		args = append(args, "%"+searchBase+"%")
 		n++
+		if spotifyID := extractSpotifyID(p.Search); spotifyID != "" {
+			orClauses = append(orClauses, fmt.Sprintf("a.spotify_id = $%d", n))
+			args = append(args, spotifyID)
+			n++
+		}
+		conditions = append(conditions, "("+strings.Join(orClauses, " OR ")+")")
 	}
 	if len(p.Countries) > 0 {
 		conditions = append(conditions, fmt.Sprintf("a.countries && $%d", n))
@@ -343,6 +355,26 @@ func buildArtist(
 		CreatedAt:     createdAt,
 		UpdatedAt:     updatedAt,
 	}
+}
+
+func extractSpotifyID(s string) string {
+	const urlPrefix = "open.spotify.com/artist/"
+	if idx := strings.Index(s, urlPrefix); idx != -1 {
+		rest := s[idx+len(urlPrefix):]
+		if i := strings.IndexAny(rest, "?/"); i != -1 {
+			rest = rest[:i]
+		}
+		return rest
+	}
+	const uriPrefix = "spotify:artist:"
+	if strings.HasPrefix(s, uriPrefix) {
+		id := s[len(uriPrefix):]
+		if i := strings.Index(id, "?"); i != -1 {
+			id = id[:i]
+		}
+		return id
+	}
+	return ""
 }
 
 func safeDir(d domain.SortDirection) string {

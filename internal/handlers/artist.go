@@ -12,6 +12,9 @@ import (
 
 func (h *Handler) GetArtists(c *gin.Context) {
 	locale := c.Query("locale")
+	if locale == "" {
+		locale = "uk"
+	}
 	if locale != "uk" && locale != "en" {
 		c.JSON(http.StatusBadRequest, gin.H{"errors": gin.H{"locale": "must be one of: uk, en"}})
 		return
