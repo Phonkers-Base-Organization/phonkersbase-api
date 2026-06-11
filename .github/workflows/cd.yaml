@@ -17,6 +17,7 @@ jobs:
 
     outputs:
       api_built: ${{ steps.changes.outputs.api }}
+      compose_changed: ${{ steps.changes.outputs.compose }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -37,12 +38,19 @@ jobs:
           BEFORE=$(skopeo inspect --format '{{index .Labels "org.opencontainers.image.revision"}}' docker://ghcr.io/${{ vars.REPOSITORY_NAME_LOWERCASE }}/api:latest 2>/dev/null || echo "")
           if [ -z "$BEFORE" ] || [ "$BEFORE" = "$SHA" ]; then
             echo "api=true" >> "$GITHUB_OUTPUT"
+            echo "compose=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          if git diff --name-only "$BEFORE" "$SHA" | grep -qE '^(internal|cmd|go\.mod|go\.sum|Dockerfile\.prod|docker-compose\.prod\.yaml)(/|$)'; then
+          CHANGED=$(git diff --name-only "$BEFORE" "$SHA")
+          if echo "$CHANGED" | grep -qE '^(internal|cmd|go\.mod|go\.sum|Dockerfile\.prod)(/|$)'; then
             echo "api=true" >> "$GITHUB_OUTPUT"
           else
             echo "api=false" >> "$GITHUB_OUTPUT"
+          fi
+          if echo "$CHANGED" | grep -qE '^docker-compose\.prod\.yaml$'; then
+            echo "compose=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "compose=false" >> "$GITHUB_OUTPUT"
           fi
 
       - uses: docker/build-push-action@v6
@@ -64,7 +72,7 @@ jobs:
     needs: build-and-push
     runs-on: ubuntu-latest
     
-    if: ${{ needs.build-and-push.outputs.api_built == 'true' }}
+    if: ${{ needs.build-and-push.outputs.api_built == 'true' || needs.build-and-push.outputs.compose_changed == 'true' }}
     steps:
       - uses: actions/checkout@v4
 
