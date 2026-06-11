@@ -53,6 +53,7 @@ func Run() error {
 	h := handlers.NewHandler(
 		repository.NewArtistRepo(dbpool),
 		repository.NewLabelRepo(dbpool),
+		repository.NewEvidenceSourceRepo(dbpool),
 		repository.NewUserRepo(dbpool),
 		repository.NewSuggestionRepo(dbpool),
 		repository.NewFeedbackRepo(dbpool),
@@ -61,6 +62,13 @@ func Run() error {
 
 	router := gin.New()
 	router.Use(gin.Recovery())
+
+	// No reverse proxy sits in front of this service directly, so don't trust
+	// X-Forwarded-For for ClientIP() (used for rate limiting) — trusting it by
+	// default would let clients spoof their IP and bypass rate limits.
+	if err := router.SetTrustedProxies(nil); err != nil {
+		return err
+	}
 
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{cfg.CORSOrigin},
@@ -80,6 +88,7 @@ func Run() error {
 	// Public routes
 	v1.GET("/artist/all", h.GetArtists)
 	v1.GET("/label/all", h.GetLabels)
+	v1.GET("/source/all", h.GetSources)
 	v1.POST("/auth/login", h.Login)
 	v1.POST("/suggestion", h.CreateSuggestion)
 	v1.POST("/feedback", h.CreateFeedback)
@@ -96,6 +105,8 @@ func Run() error {
 		protected.PUT("/artist/:id", h.UpdateArtist)
 		protected.DELETE("/artist/:id", h.DeleteArtist)
 		protected.GET("/artist/stats", h.GetArtistStats)
+
+		protected.POST("/source", h.CreateSource)
 
 		protected.POST("/label", h.CreateLabel)
 		protected.PUT("/label/:id", h.UpdateLabel)
@@ -121,8 +132,9 @@ func Run() error {
 
 	errCh := make(chan error, 1)
 	srv := &http.Server{
-		Addr:    ":" + port,
-		Handler: router,
+		Addr:              ":" + port,
+		Handler:           router,
+		ReadHeaderTimeout: 10 * time.Second,
 	}
 
 	go func() {

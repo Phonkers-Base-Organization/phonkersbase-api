@@ -60,13 +60,29 @@ func (h *Handler) GetArtists(c *gin.Context) {
 }
 
 func (h *Handler) GetAdminArtists(c *gin.Context) {
-	artists, err := h.artists.GetAdminAll(c.Request.Context())
+	limit := 0
+	offset := 0
+	if v := c.Query("limit"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 1 || n > 200 {
+			c.JSON(http.StatusBadRequest, gin.H{"errors": gin.H{"limit": "must be between 1 and 200"}})
+			return
+		}
+		limit = n
+	}
+	if v := c.Query("offset"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
+			offset = n
+		}
+	}
+
+	artists, total, err := h.artists.GetAdminAll(c.Request.Context(), limit, offset)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to get admin artists")
 		c.Status(http.StatusInternalServerError)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"artists": artists})
+	c.JSON(http.StatusOK, gin.H{"artists": artists, "total": total})
 }
 
 func (h *Handler) CreateArtist(c *gin.Context) {

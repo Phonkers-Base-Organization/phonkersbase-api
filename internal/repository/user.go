@@ -21,7 +21,7 @@ func NewUserRepo(db *pgxpool.Pool) *UserRepo {
 
 func (r *UserRepo) GetAll(ctx context.Context) ([]domain.User, error) {
 	rows, err := r.db.Query(ctx, `
-		SELECT id, username, role, created_at, updated_at
+		SELECT id, username, role
 		FROM users
 		ORDER BY created_at ASC
 	`)
@@ -36,7 +36,7 @@ func (r *UserRepo) GetAll(ctx context.Context) ([]domain.User, error) {
 			id int
 			u  domain.User
 		)
-		if err := rows.Scan(&id, &u.Username, &u.Role, &u.CreatedAt, &u.UpdatedAt); err != nil {
+		if err := rows.Scan(&id, &u.Username, &u.Role); err != nil {
 			return nil, err
 		}
 		u.ID = strconv.Itoa(id)
@@ -52,10 +52,10 @@ func (r *UserRepo) GetByUsername(ctx context.Context, username string) (*domain.
 		passwordHash string
 	)
 	err := r.db.QueryRow(ctx, `
-		SELECT id, username, role, password_hash, created_at, updated_at
+		SELECT id, username, role, password_hash
 		FROM users
 		WHERE username = $1
-	`, username).Scan(&id, &u.Username, &u.Role, &passwordHash, &u.CreatedAt, &u.UpdatedAt)
+	`, username).Scan(&id, &u.Username, &u.Role, &passwordHash)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, "", ErrNotFound
@@ -72,10 +72,10 @@ func (r *UserRepo) GetByID(ctx context.Context, id string) (*domain.User, error)
 		u   domain.User
 	)
 	err := r.db.QueryRow(ctx, `
-		SELECT id, username, role, created_at, updated_at
+		SELECT id, username, role
 		FROM users
 		WHERE id = $1
-	`, id).Scan(&uid, &u.Username, &u.Role, &u.CreatedAt, &u.UpdatedAt)
+	`, id).Scan(&uid, &u.Username, &u.Role)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNotFound
@@ -94,8 +94,8 @@ func (r *UserRepo) Create(ctx context.Context, username, passwordHash, role stri
 	err := r.db.QueryRow(ctx, `
 		INSERT INTO users (username, password_hash, role)
 		VALUES ($1, $2, $3)
-		RETURNING id, username, role, created_at, updated_at
-	`, username, passwordHash, role).Scan(&id, &u.Username, &u.Role, &u.CreatedAt, &u.UpdatedAt)
+		RETURNING id, username, role
+	`, username, passwordHash, role).Scan(&id, &u.Username, &u.Role)
 	if err != nil {
 		return nil, err
 	}

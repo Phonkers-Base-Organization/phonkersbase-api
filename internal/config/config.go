@@ -9,7 +9,7 @@ import (
 
 type Config struct {
 	DatabaseURL string `validate:"required,uri"`
-	JWTSecret   string `validate:"required"`
+	JWTSecret   string `validate:"required,min=32"`
 	CORSOrigin  string
 }
 

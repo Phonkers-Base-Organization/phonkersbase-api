@@ -7,6 +7,7 @@ import (
 type Handler struct {
 	artists     *repository.ArtistRepo
 	labels      *repository.LabelRepo
+	sources     *repository.EvidenceSourceRepo
 	users       *repository.UserRepo
 	suggestions *repository.SuggestionRepo
 	feedbacks   *repository.FeedbackRepo
@@ -16,6 +17,7 @@ type Handler struct {
 func NewHandler(
 	artists *repository.ArtistRepo,
 	labels *repository.LabelRepo,
+	sources *repository.EvidenceSourceRepo,
 	users *repository.UserRepo,
 	suggestions *repository.SuggestionRepo,
 	feedbacks *repository.FeedbackRepo,
@@ -24,6 +26,7 @@ func NewHandler(
 	return &Handler{
 		artists:     artists,
 		labels:      labels,
+		sources:     sources,
 		users:       users,
 		suggestions: suggestions,
 		feedbacks:   feedbacks,

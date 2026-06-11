@@ -39,9 +39,7 @@ UPDATE artists SET countries = ARRAY(
   FROM unnest(countries) AS c
 ) WHERE countries IS NOT NULL AND array_length(countries, 1) > 0;
 
-ALTER TABLE artists ADD COLUMN IF NOT EXISTS evidence_url TEXT;
 ALTER TABLE artists ADD COLUMN IF NOT EXISTS notes TEXT;
-ALTER TABLE artists ADD COLUMN IF NOT EXISTS sources JSONB NOT NULL DEFAULT '[]';
 
 CREATE TABLE users (
     id            SERIAL PRIMARY KEY,
@@ -81,7 +79,88 @@ CREATE TRIGGER suggestions_updated_at
     BEFORE UPDATE ON suggestions
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+CREATE TABLE evidence_sources (
+    id         SERIAL PRIMARY KEY,
+    name       TEXT NOT NULL UNIQUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+INSERT INTO evidence_sources (name) VALUES
+    ('Потребує уточнення'),
+    ('Відкрита інфа з інету'),
+    ('Spotify опис'),
+    ('Обкладинки/назви треків'),
+    ('Spotify ПІБ'),
+    ('SoundCloud опис/країна'),
+    ('SoundCloud коменти'),
+    ('Bandcamp країна'),
+    ('Мова у соцмережах'),
+    ('Instagram опис'),
+    ('Instagram гео'),
+    ('Instagram пости'),
+    ('YouTube опис/країна'),
+    ('TikTok опис'),
+    ('TikTok гео'),
+    ('TikTok пости'),
+    ('Genius опис'),
+    ('VK група опис'),
+    ('VK аккаунт опис/країна'),
+    ('VK дописи'),
+    ('Telegram опис'),
+    ('Telegram пости'),
+    ('Twitter опис/країна'),
+    ('Twitter гео'),
+    ('Twitter пости'),
+    ('Facebook опис/країна'),
+    ('Facebook гео'),
+    ('Facebook пости'),
+    ('Discord опис'),
+    ('Discord повідомлення'),
+    ('По активності'),
+    ('Другий акаунт виконавця'),
+    ('NCS fandom'),
+    ('BeatStars профіль'),
+    ('Beatport опис'),
+    ('Інфа від лейблу'),
+    ('Linktree-посилання країна'),
+    ('LinkedIn країна'),
+    ('Viberate.com країна'),
+    ('Інфа від виконавця/знайомих'),
+    ('Monstercat wiki'),
+    ('Reddit коментарі'),
+    ('Wikitubia опис'),
+    ('Інші джерела'),
+    ('Guns.lol країна'),
+    ('Threads дописи/коментарі');
+
+CREATE TABLE artist_countries (
+    artist_id INT NOT NULL REFERENCES artists(id) ON DELETE CASCADE,
+    code      TEXT NOT NULL,
+    source_id INT REFERENCES evidence_sources(id) ON DELETE SET NULL,
+    position  SMALLINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (artist_id, code)
+);
+
+INSERT INTO artist_countries (artist_id, code, position)
+SELECT a.id, c.code, c.ord - 1
+FROM artists a, unnest(a.countries) WITH ORDINALITY AS c(code, ord)
+WHERE a.countries IS NOT NULL AND array_length(a.countries, 1) > 0;
+
+ALTER TABLE artists DROP COLUMN IF EXISTS countries;
+
 ---- create above / drop below ----
+
+ALTER TABLE artists ADD COLUMN IF NOT EXISTS countries TEXT[];
+
+UPDATE artists a SET countries = (
+    SELECT array_agg(ac.code ORDER BY ac.position)
+    FROM artist_countries ac
+    WHERE ac.artist_id = a.id
+);
+
+DROP TABLE IF EXISTS artist_countries;
+
+DROP TABLE IF EXISTS evidence_sources;
 
 DROP TRIGGER IF EXISTS users_updated_at ON users;
 DROP TRIGGER IF EXISTS suggestions_updated_at ON suggestions;
@@ -90,9 +169,7 @@ DROP TABLE IF EXISTS feedbacks;
 DROP TABLE IF EXISTS suggestions;
 DROP TABLE IF EXISTS users;
 
-ALTER TABLE artists DROP COLUMN IF EXISTS sources;
 ALTER TABLE artists DROP COLUMN IF EXISTS notes;
-ALTER TABLE artists DROP COLUMN IF EXISTS evidence_url;
 
 CREATE TABLE countries (
     id            SERIAL PRIMARY KEY,

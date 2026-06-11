@@ -22,7 +22,7 @@ func (r *SuggestionRepo) GetAll(ctx context.Context, status string) ([]domain.Su
 		status = "pending"
 	}
 	rows, err := r.db.Query(ctx, `
-		SELECT id, name, link, countries, listen_labels, evidence, description, status, created_at, updated_at
+		SELECT id, name, link, countries, listen_labels, evidence, description, status, created_at
 		FROM suggestions
 		WHERE status = $1
 		ORDER BY created_at DESC
@@ -41,7 +41,7 @@ func (r *SuggestionRepo) GetAll(ctx context.Context, status string) ([]domain.Su
 		if err := rows.Scan(
 			&id, &s.Name, &s.Link, &s.Countries, &s.ListenLabels,
 			&s.Evidence, &s.Description, &s.Status,
-			&s.CreatedAt, &s.UpdatedAt,
+			&s.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -65,11 +65,11 @@ func (r *SuggestionRepo) Create(ctx context.Context, name string, link *string, 
 	err := r.db.QueryRow(ctx, `
 		INSERT INTO suggestions (name, link, countries, listen_labels, evidence, description)
 		VALUES ($1, $2, $3, $4, $5, $6)
-		RETURNING id, name, link, countries, listen_labels, evidence, description, status, created_at, updated_at
+		RETURNING id, name, link, countries, listen_labels, evidence, description, status, created_at
 	`, name, link, countries, listenLabels, evidence, description).Scan(
 		&id, &s.Name, &s.Link, &s.Countries, &s.ListenLabels,
 		&s.Evidence, &s.Description, &s.Status,
-		&s.CreatedAt, &s.UpdatedAt,
+		&s.CreatedAt,
 	)
 	if err != nil {
 		return nil, err
