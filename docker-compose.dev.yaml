@@ -9,6 +9,7 @@ services:
       - "8080:8080"
     environment:
       PORT: 8080
+      JWT_SECRET: super_duper_secret_key_for_local_dev_only
       DB_URL: postgres://app:app@postgres:5432/app?sslmode=disable
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://api:8080/health"]

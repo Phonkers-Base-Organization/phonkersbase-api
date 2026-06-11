@@ -9,50 +9,56 @@ const (
 	SortDesc SortDirection = "desc"
 )
 
-type LabelName string
-
-const (
-	LabelApproved LabelName = "approved"
-	LabelBlocked  LabelName = "blocked"
-	LabelWarning  LabelName = "warning"
-	LabelUnknown  LabelName = "unknown"
-	LabelPride    LabelName = "pride"
-	LabelBase     LabelName = "base"
-)
-
-type Country struct {
-	ID           string    `json:"id"`
-	Name         string    `json:"name"`
-	OriginalName string    `json:"originalName"`
-	CreatedAt    time.Time `json:"createdAt"`
-	UpdatedAt    time.Time `json:"updatedAt"`
-}
-
-func CountryFromName(name string) Country {
-	return Country{ID: name, Name: name, OriginalName: name}
-}
-
 type Label struct {
 	ID           string    `json:"id"`
-	Name         LabelName `json:"name"`
+	Name         string    `json:"name"`
 	OriginalName string    `json:"originalName"`
 	Priority     int       `json:"priority"`
 	CreatedAt    time.Time `json:"createdAt"`
 	UpdatedAt    time.Time `json:"updatedAt"`
 }
 
+// LabelRef is the slim representation of a label nested inside an artist's
+// listenLabels. Full metadata (priority, timestamps) lives in /label/all and
+// can be correlated by ID.
+type LabelRef struct {
+	ID           string `json:"id"`
+	Name         string `json:"name"`
+	OriginalName string `json:"originalName"`
+}
+
+type EvidenceSource struct {
+	ID        string    `json:"id"`
+	Name      string    `json:"name"`
+	CreatedAt time.Time `json:"createdAt"`
+}
+
+// SourceRef is the slim representation of an evidence source nested inside an
+// artist country entry. Full metadata lives in /source/all and can be
+// correlated by ID.
+type SourceRef struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+type ArtistCountry struct {
+	Code   string     `json:"code"`
+	Source *SourceRef `json:"source"`
+}
+
 type Artist struct {
-	ID            string    `json:"id"`
-	Name          string    `json:"name"`
-	Link          *string   `json:"link"`
-	AvatarURL     *string   `json:"avatarUrl"`
-	SpotifyID     *string   `json:"spotifyId"`
-	Countries     []Country `json:"countries"`
-	ListenLabels  []Label   `json:"listenLabels"`
-	Description   *string   `json:"description"`
-	DescriptionEn *string   `json:"descriptionEn"`
-	CreatedAt     time.Time `json:"createdAt"`
-	UpdatedAt     time.Time `json:"updatedAt"`
+	ID            string          `json:"id"`
+	Name          string          `json:"name"`
+	Link          *string         `json:"link"`
+	AvatarURL     *string         `json:"avatarUrl"`
+	SpotifyID     *string         `json:"spotifyId"`
+	Countries     []ArtistCountry `json:"countries"`
+	ListenLabels  []LabelRef      `json:"listenLabels"`
+	Description   *string         `json:"description"`
+	DescriptionEn *string         `json:"descriptionEn"`
+	Notes         *string         `json:"notes"`
+	CreatedAt     time.Time       `json:"createdAt"`
+	UpdatedAt     time.Time       `json:"updatedAt"`
 }
 
 type Pagination struct {
@@ -78,4 +84,62 @@ type ListArtistsParams struct {
 	ByArtist  SortDirection
 	ByCountry SortDirection
 	ByListen  SortDirection
+}
+
+type User struct {
+	ID       string `json:"id"`
+	Username string `json:"username"`
+	Role     string `json:"role"`
+}
+
+type Suggestion struct {
+	ID           string    `json:"id"`
+	Name         string    `json:"name"`
+	Link         *string   `json:"link"`
+	Countries    []string  `json:"countries"`
+	ListenLabels []string  `json:"listenLabels"`
+	Evidence     *string   `json:"evidence"`
+	Description  *string   `json:"description"`
+	Status       string    `json:"status"`
+	CreatedAt    time.Time `json:"createdAt"`
+}
+
+type Feedback struct {
+	ID        string    `json:"id"`
+	Type      string    `json:"type"`
+	Text      string    `json:"text"`
+	Email     *string   `json:"email"`
+	CreatedAt time.Time `json:"createdAt"`
+}
+
+type ArtistStats struct {
+	Total     int     `json:"total"`
+	LastAdded *string `json:"lastAdded"`
+}
+
+type ArtistCountryInput struct {
+	Code     string  `json:"code" binding:"required"`
+	SourceID *string `json:"sourceId"`
+}
+
+type UpsertArtistInput struct {
+	Name          string               `json:"name" binding:"required"`
+	Link          *string              `json:"link"`
+	AvatarURL     *string              `json:"avatarUrl"`
+	SpotifyID     *string              `json:"spotifyId"`
+	Description   *string              `json:"description"`
+	DescriptionEn *string              `json:"descriptionEn"`
+	Countries     []ArtistCountryInput `json:"countries"`
+	ListenLabels  []string             `json:"listenLabels"`
+	Notes         *string              `json:"notes"`
+}
+
+type UpsertSourceInput struct {
+	Name string `json:"name" binding:"required"`
+}
+
+type UpsertLabelInput struct {
+	Name         string `json:"name" binding:"required"`
+	OriginalName string `json:"originalName" binding:"required"`
+	Priority     int    `json:"priority"`
 }

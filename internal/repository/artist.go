@@ -30,20 +30,20 @@ func (r *ArtistRepo) GetByID(ctx context.Context, id int) (*domain.Artist, error
 		aid                       int
 		link, spotifyID           *string
 		avatarURL, descUA, descEN *string
+		notes                     *string
 		name                      string
-		countries                 []string
 		createdAt, updatedAt      time.Time
 	)
 	err := r.db.QueryRow(ctx, `
 		SELECT id, name, link, spotify_id, avatar_url,
-		       description_ua, description_en, countries,
-		       created_at, updated_at
+		       description_ua, description_en,
+		       notes, created_at, updated_at
 		FROM artists
 		WHERE id = $1
 	`, id).Scan(
 		&aid, &name, &link, &spotifyID, &avatarURL,
-		&descUA, &descEN, &countries,
-		&createdAt, &updatedAt,
+		&descUA, &descEN,
+		&notes, &createdAt, &updatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -52,18 +52,17 @@ func (r *ArtistRepo) GetByID(ctx context.Context, id int) (*domain.Artist, error
 		return nil, err
 	}
 
-	countryLookup, err := r.fetchCountriesByNames(ctx, countries)
+	labels, err := r.fetchLabels(ctx, []int{aid})
 	if err != nil {
 		return nil, err
 	}
-
-	labels, err := r.fetchLabels(ctx, []int{aid})
+	countries, err := r.fetchCountries(ctx, []int{aid})
 	if err != nil {
 		return nil, err
 	}
 
 	a := buildArtist(aid, name, link, spotifyID, avatarURL, descUA, descEN,
-		resolvecountries(countries, countryLookup),
+		countries[aid], notes,
 		createdAt, updatedAt,
 		labels[aid])
 	return &a, nil
@@ -98,7 +97,9 @@ func (r *ArtistRepo) GetAll(ctx context.Context, p domain.ListArtistsParams) (*d
 		conditions = append(conditions, "("+strings.Join(orClauses, " OR ")+")")
 	}
 	if len(p.Countries) > 0 {
-		conditions = append(conditions, fmt.Sprintf("a.countries && $%d", n))
+		conditions = append(conditions, fmt.Sprintf(
+			"EXISTS (SELECT 1 FROM artist_countries ac2 WHERE ac2.artist_id = a.id AND ac2.code = ANY($%d))", n,
+		))
 		args = append(args, p.Countries)
 		n++
 	}
@@ -124,7 +125,10 @@ func (r *ArtistRepo) GetAll(ctx context.Context, p domain.ListArtistsParams) (*d
 		if p.ByCountry == domain.SortAsc {
 			nullsPos = "FIRST"
 		}
-		orderParts = append(orderParts, fmt.Sprintf("a.countries[1] %s NULLS %s", safeDir(p.ByCountry), nullsPos))
+		orderParts = append(orderParts, fmt.Sprintf(
+			"(SELECT ac3.code FROM artist_countries ac3 WHERE ac3.artist_id = a.id ORDER BY ac3.position ASC LIMIT 1) %s NULLS %s",
+			safeDir(p.ByCountry), nullsPos,
+		))
 	}
 	if p.ByListen != "" {
 		orderParts = append(orderParts, "a.total_priority "+safeDir(p.ByListen))
@@ -143,7 +147,7 @@ func (r *ArtistRepo) GetAll(ctx context.Context, p domain.ListArtistsParams) (*d
 	q := fmt.Sprintf(`
 		SELECT
 			a.id, a.name, a.link, a.spotify_id, a.avatar_url,
-			a.description_ua, a.description_en, a.countries,
+			a.description_ua, a.description_en,
 			a.created_at, a.updated_at,
 			COUNT(*) OVER() AS total_count
 		FROM artists a
@@ -165,7 +169,6 @@ func (r *ArtistRepo) GetAll(ctx context.Context, p domain.ListArtistsParams) (*d
 		name                       string
 		link, spotifyID, avatarURL *string
 		descUA, descEN             *string
-		rawCountries               []string
 		createdAt, updatedAt       time.Time
 		totalCount                 int
 	}
@@ -173,57 +176,48 @@ func (r *ArtistRepo) GetAll(ctx context.Context, p domain.ListArtistsParams) (*d
 	var (
 		raws      []rawRow
 		artistIDs []int
-		nameSet   = map[string]struct{}{}
 		total     int
 	)
 
 	for rows.Next() {
-		var r rawRow
+		var row rawRow
 		if err := rows.Scan(
-			&r.id, &r.name, &r.link, &r.spotifyID, &r.avatarURL,
-			&r.descUA, &r.descEN, &r.rawCountries,
-			&r.createdAt, &r.updatedAt,
-			&r.totalCount,
+			&row.id, &row.name, &row.link, &row.spotifyID, &row.avatarURL,
+			&row.descUA, &row.descEN,
+			&row.createdAt, &row.updatedAt,
+			&row.totalCount,
 		); err != nil {
 			return nil, err
 		}
-		total = r.totalCount
-		raws = append(raws, r)
-		artistIDs = append(artistIDs, r.id)
-		for _, c := range r.rawCountries {
-			nameSet[c] = struct{}{}
-		}
+		total = row.totalCount
+		raws = append(raws, row)
+		artistIDs = append(artistIDs, row.id)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
 
-	allNames := make([]string, 0, len(nameSet))
-	for n := range nameSet {
-		allNames = append(allNames, n)
-	}
-
-	countryLookup, err := r.fetchCountriesByNames(ctx, allNames)
-	if err != nil {
-		return nil, err
-	}
-
-	labelsByArtist := map[int][]domain.Label{}
+	labelsByArtist := map[int][]domain.LabelRef{}
+	countriesByArtist := map[int][]domain.ArtistCountry{}
 	if len(artistIDs) > 0 {
 		labelsByArtist, err = r.fetchLabels(ctx, artistIDs)
+		if err != nil {
+			return nil, err
+		}
+		countriesByArtist, err = r.fetchCountries(ctx, artistIDs)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	artists := make([]domain.Artist, len(raws))
-	for i, r := range raws {
+	for i, row := range raws {
 		artists[i] = buildArtist(
-			r.id, r.name, r.link, r.spotifyID, r.avatarURL,
-			r.descUA, r.descEN,
-			resolvecountries(r.rawCountries, countryLookup),
-			r.createdAt, r.updatedAt,
-			labelsByArtist[r.id],
+			row.id, row.name, row.link, row.spotifyID, row.avatarURL,
+			row.descUA, row.descEN,
+			countriesByArtist[row.id], nil,
+			row.createdAt, row.updatedAt,
+			labelsByArtist[row.id],
 		)
 	}
 
@@ -248,9 +242,298 @@ func (r *ArtistRepo) GetAll(ctx context.Context, p domain.ListArtistsParams) (*d
 	}, nil
 }
 
-func (r *ArtistRepo) fetchLabels(ctx context.Context, artistIDs []int) (map[int][]domain.Label, error) {
+func (r *ArtistRepo) GetAdminAll(ctx context.Context, limit, offset int) ([]domain.Artist, int, error) {
+	args := []any{}
+	limitClause := ""
+	if limit > 0 {
+		limitClause = "LIMIT $1 OFFSET $2"
+		args = append(args, limit, offset)
+	}
+
+	q := fmt.Sprintf(`
+		SELECT
+			a.id, a.name, a.link, a.spotify_id, a.avatar_url,
+			a.description_ua, a.description_en,
+			a.notes, a.created_at, a.updated_at,
+			COUNT(*) OVER() AS total_count
+		FROM artists a
+		ORDER BY a.total_priority DESC, a.id ASC
+		%s
+	`, limitClause)
+
+	rows, err := r.db.Query(ctx, q, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	type rawRow struct {
+		id                         int
+		name                       string
+		link, spotifyID, avatarURL *string
+		descUA, descEN             *string
+		notes                      *string
+		createdAt, updatedAt       time.Time
+		totalCount                 int
+	}
+
+	var (
+		raws      []rawRow
+		artistIDs []int
+		total     int
+	)
+
+	for rows.Next() {
+		var row rawRow
+		if err := rows.Scan(
+			&row.id, &row.name, &row.link, &row.spotifyID, &row.avatarURL,
+			&row.descUA, &row.descEN,
+			&row.notes, &row.createdAt, &row.updatedAt,
+			&row.totalCount,
+		); err != nil {
+			return nil, 0, err
+		}
+		total = row.totalCount
+		raws = append(raws, row)
+		artistIDs = append(artistIDs, row.id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
+	}
+
+	labelsByArtist := map[int][]domain.LabelRef{}
+	countriesByArtist := map[int][]domain.ArtistCountry{}
+	if len(artistIDs) > 0 {
+		labelsByArtist, err = r.fetchLabels(ctx, artistIDs)
+		if err != nil {
+			return nil, 0, err
+		}
+		countriesByArtist, err = r.fetchCountries(ctx, artistIDs)
+		if err != nil {
+			return nil, 0, err
+		}
+	}
+
+	artists := make([]domain.Artist, len(raws))
+	for i, row := range raws {
+		artists[i] = buildArtist(
+			row.id, row.name, row.link, row.spotifyID, row.avatarURL,
+			row.descUA, row.descEN,
+			countriesByArtist[row.id], row.notes,
+			row.createdAt, row.updatedAt,
+			labelsByArtist[row.id],
+		)
+	}
+
+	return artists, total, nil
+}
+
+func (r *ArtistRepo) Create(ctx context.Context, input domain.UpsertArtistInput) (*domain.Artist, error) {
+	var (
+		id                   int
+		createdAt, updatedAt time.Time
+	)
+	err := r.db.QueryRow(ctx, `
+		INSERT INTO artists (name, link, spotify_id, avatar_url, description_ua, description_en, notes)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		RETURNING id, created_at, updated_at
+	`,
+		input.Name, input.Link, input.SpotifyID, input.AvatarURL,
+		input.Description, input.DescriptionEn, input.Notes,
+	).Scan(&id, &createdAt, &updatedAt)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := r.replaceArtistLabels(ctx, id, input.ListenLabels); err != nil {
+		return nil, err
+	}
+	if err := r.replaceArtistCountries(ctx, id, input.Countries); err != nil {
+		return nil, err
+	}
+
+	labels, err := r.fetchLabels(ctx, []int{id})
+	if err != nil {
+		return nil, err
+	}
+	countries, err := r.fetchCountries(ctx, []int{id})
+	if err != nil {
+		return nil, err
+	}
+
+	a := buildArtist(id, input.Name, input.Link, input.SpotifyID, input.AvatarURL,
+		input.Description, input.DescriptionEn,
+		countries[id], input.Notes,
+		createdAt, updatedAt,
+		labels[id])
+	return &a, nil
+}
+
+func (r *ArtistRepo) Update(ctx context.Context, id string, input domain.UpsertArtistInput) (*domain.Artist, error) {
+	var (
+		aid                  int
+		createdAt, updatedAt time.Time
+	)
+	err := r.db.QueryRow(ctx, `
+		UPDATE artists SET
+			name = $1, link = $2, spotify_id = $3, avatar_url = $4,
+			description_ua = $5, description_en = $6, notes = $7
+		WHERE id = $8
+		RETURNING id, created_at, updated_at
+	`,
+		input.Name, input.Link, input.SpotifyID, input.AvatarURL,
+		input.Description, input.DescriptionEn,
+		input.Notes, id,
+	).Scan(&aid, &createdAt, &updatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+
+	if err := r.replaceArtistLabels(ctx, aid, input.ListenLabels); err != nil {
+		return nil, err
+	}
+	if err := r.replaceArtistCountries(ctx, aid, input.Countries); err != nil {
+		return nil, err
+	}
+
+	labels, err := r.fetchLabels(ctx, []int{aid})
+	if err != nil {
+		return nil, err
+	}
+	countries, err := r.fetchCountries(ctx, []int{aid})
+	if err != nil {
+		return nil, err
+	}
+
+	a := buildArtist(aid, input.Name, input.Link, input.SpotifyID, input.AvatarURL,
+		input.Description, input.DescriptionEn,
+		countries[aid], input.Notes,
+		createdAt, updatedAt,
+		labels[aid])
+	return &a, nil
+}
+
+func (r *ArtistRepo) Delete(ctx context.Context, id string) error {
+	// junction rows deleted by ON DELETE CASCADE
+	tag, err := r.db.Exec(ctx, `DELETE FROM artists WHERE id = $1`, id)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (r *ArtistRepo) GetStats(ctx context.Context) (*domain.ArtistStats, error) {
+	var (
+		total     int
+		lastAdded *string
+	)
+	err := r.db.QueryRow(ctx, `
+		SELECT COUNT(*), (SELECT name FROM artists ORDER BY created_at DESC LIMIT 1)
+		FROM artists
+	`).Scan(&total, &lastAdded)
+	if err != nil {
+		return nil, err
+	}
+	return &domain.ArtistStats{Total: total, LastAdded: lastAdded}, nil
+}
+
+func (r *ArtistRepo) replaceArtistCountries(ctx context.Context, artistID int, countries []domain.ArtistCountryInput) error {
+	_, err := r.db.Exec(ctx, `DELETE FROM artist_countries WHERE artist_id = $1`, artistID)
+	if err != nil {
+		return err
+	}
+	for i, c := range countries {
+		var sourceID *int
+		if c.SourceID != nil && *c.SourceID != "" {
+			n, err := strconv.Atoi(*c.SourceID)
+			if err == nil {
+				sourceID = &n
+			}
+		}
+		_, err := r.db.Exec(ctx, `
+			INSERT INTO artist_countries (artist_id, code, source_id, position)
+			VALUES ($1, $2, $3, $4)
+			ON CONFLICT (artist_id, code) DO NOTHING
+		`, artistID, c.Code, sourceID, i)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *ArtistRepo) replaceArtistLabels(ctx context.Context, artistID int, labelIDs []string) error {
+	_, err := r.db.Exec(ctx, `DELETE FROM artist_labels WHERE artist_id = $1`, artistID)
+	if err != nil {
+		return err
+	}
+	if len(labelIDs) == 0 {
+		return nil
+	}
+	ids := make([]int, 0, len(labelIDs))
+	for _, s := range labelIDs {
+		n, err := strconv.Atoi(s)
+		if err != nil {
+			continue
+		}
+		ids = append(ids, n)
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	_, err = r.db.Exec(ctx, `
+		INSERT INTO artist_labels (artist_id, label_id)
+		SELECT $1, id FROM labels WHERE id = ANY($2)
+		ON CONFLICT DO NOTHING
+	`, artistID, ids)
+	return err
+}
+
+func (r *ArtistRepo) fetchCountries(ctx context.Context, artistIDs []int) (map[int][]domain.ArtistCountry, error) {
 	rows, err := r.db.Query(ctx, `
-		SELECT al.artist_id, l.id, l.name, l.original_name, l.priority, l.created_at, l.updated_at
+		SELECT ac.artist_id, ac.code, es.id, es.name
+		FROM artist_countries ac
+		LEFT JOIN evidence_sources es ON es.id = ac.source_id
+		WHERE ac.artist_id = ANY($1)
+		ORDER BY ac.position ASC
+	`, artistIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := map[int][]domain.ArtistCountry{}
+	for rows.Next() {
+		var (
+			artistID   int
+			code       string
+			sourceID   *int
+			sourceName *string
+		)
+		if err := rows.Scan(&artistID, &code, &sourceID, &sourceName); err != nil {
+			return nil, err
+		}
+		var source *domain.SourceRef
+		if sourceID != nil {
+			source = &domain.SourceRef{
+				ID:   strconv.Itoa(*sourceID),
+				Name: *sourceName,
+			}
+		}
+		result[artistID] = append(result[artistID], domain.ArtistCountry{Code: code, Source: source})
+	}
+	return result, rows.Err()
+}
+
+func (r *ArtistRepo) fetchLabels(ctx context.Context, artistIDs []int) (map[int][]domain.LabelRef, error) {
+	rows, err := r.db.Query(ctx, `
+		SELECT al.artist_id, l.id, l.name, l.original_name
 		FROM labels l
 		JOIN artist_labels al ON al.label_id = l.id
 		WHERE al.artist_id = ANY($1)
@@ -261,86 +544,38 @@ func (r *ArtistRepo) fetchLabels(ctx context.Context, artistIDs []int) (map[int]
 	}
 	defer rows.Close()
 
-	result := map[int][]domain.Label{}
+	result := map[int][]domain.LabelRef{}
 	for rows.Next() {
 		var (
-			artistID, id         int
-			name, originalName   string
-			priority             int
-			createdAt, updatedAt time.Time
+			artistID, id       int
+			name, originalName string
 		)
-		if err := rows.Scan(&artistID, &id, &name, &originalName, &priority, &createdAt, &updatedAt); err != nil {
+		if err := rows.Scan(&artistID, &id, &name, &originalName); err != nil {
 			return nil, err
 		}
-		result[artistID] = append(result[artistID], domain.Label{
-			ID:           strconv.Itoa(id),
-			Name:         domain.LabelName(name),
-			OriginalName: originalName,
-			Priority:     priority,
-			CreatedAt:    createdAt,
-			UpdatedAt:    updatedAt,
-		})
-	}
-	return result, rows.Err()
-}
-
-func (r *ArtistRepo) fetchCountriesByNames(ctx context.Context, names []string) (map[string]domain.Country, error) {
-	if len(names) == 0 {
-		return map[string]domain.Country{}, nil
-	}
-	rows, err := r.db.Query(ctx, `
-		SELECT id, name, original_name, created_at, updated_at
-		FROM countries
-		WHERE name = ANY($1)
-	`, names)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	result := map[string]domain.Country{}
-	for rows.Next() {
-		var (
-			id                   int
-			name, originalName   string
-			createdAt, updatedAt time.Time
-		)
-		if err := rows.Scan(&id, &name, &originalName, &createdAt, &updatedAt); err != nil {
-			return nil, err
-		}
-		result[name] = domain.Country{
+		result[artistID] = append(result[artistID], domain.LabelRef{
 			ID:           strconv.Itoa(id),
 			Name:         name,
 			OriginalName: originalName,
-			CreatedAt:    createdAt,
-			UpdatedAt:    updatedAt,
-		}
+		})
 	}
 	return result, rows.Err()
-}
-
-func resolvecountries(names []string, lookup map[string]domain.Country) []domain.Country {
-	out := make([]domain.Country, 0, len(names))
-	for _, name := range names {
-		if c, ok := lookup[name]; ok {
-			out = append(out, c)
-		} else {
-			out = append(out, domain.CountryFromName(name))
-		}
-	}
-	return out
 }
 
 func buildArtist(
 	id int,
 	name string,
 	link, spotifyID, avatarURL, descUA, descEN *string,
-	countries []domain.Country,
+	countries []domain.ArtistCountry,
+	notes *string,
 	createdAt, updatedAt time.Time,
-	labels []domain.Label,
+	labels []domain.LabelRef,
 ) domain.Artist {
 	if labels == nil {
-		labels = []domain.Label{}
+		labels = []domain.LabelRef{}
+	}
+	if countries == nil {
+		countries = []domain.ArtistCountry{}
 	}
 	return domain.Artist{
 		ID:            strconv.Itoa(id),
@@ -352,6 +587,7 @@ func buildArtist(
 		ListenLabels:  labels,
 		Description:   descUA,
 		DescriptionEn: descEN,
+		Notes:         notes,
 		CreatedAt:     createdAt,
 		UpdatedAt:     updatedAt,
 	}

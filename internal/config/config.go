@@ -9,14 +9,21 @@ import (
 
 type Config struct {
 	DatabaseURL string `validate:"required,uri"`
+	JWTSecret   string `validate:"required,min=32"`
+	CORSOrigin  string
 }
 
 func Load() (*Config, error) {
 	config := &Config{
-		DatabaseURL: os.Getenv("DB_URL"),
+		DatabaseURL:         os.Getenv("DB_URL"),
+		JWTSecret:  os.Getenv("JWT_SECRET"),
+		CORSOrigin: os.Getenv("CORS_ORIGIN"),
 	}
 
-	// Validate the configuration
+	if config.CORSOrigin == "" {
+		config.CORSOrigin = "http://localhost:3000"
+	}
+
 	validate := validator.New()
 	err := validate.Struct(config)
 	if err != nil {

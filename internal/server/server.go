@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/tern/v2/migrate"
@@ -51,28 +52,89 @@ func Run() error {
 
 	h := handlers.NewHandler(
 		repository.NewArtistRepo(dbpool),
-		repository.NewCountryRepo(dbpool),
 		repository.NewLabelRepo(dbpool),
+		repository.NewEvidenceSourceRepo(dbpool),
+		repository.NewUserRepo(dbpool),
+		repository.NewSuggestionRepo(dbpool),
+		repository.NewFeedbackRepo(dbpool),
+		cfg.JWTSecret,
 	)
 
 	router := gin.New()
 	router.Use(gin.Recovery())
+
+	// No reverse proxy sits in front of this service directly, so don't trust
+	// X-Forwarded-For for ClientIP() (used for rate limiting) — trusting it by
+	// default would let clients spoof their IP and bypass rate limits.
+	if err := router.SetTrustedProxies(nil); err != nil {
+		return err
+	}
+
+	router.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{cfg.CORSOrigin},
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Authorization", "Content-Type"},
+		AllowCredentials: true,
+	}))
+
 	router.Use(logger("/", "/health", "/metrics"))
 	router.GET("/health", func(c *gin.Context) {
-		c.JSON(200, gin.H{"status": "ok"})
+		c.Status(http.StatusNoContent)
 	})
+
 	v1 := router.Group("/api/v1")
 	v1.Use(middlewares.RateLimitRequests())
+
+	// Public routes
+	v1.GET("/artist/all", h.GetArtists)
+	v1.GET("/label/all", h.GetLabels)
+	v1.GET("/source/all", h.GetSources)
+	v1.POST("/auth/login", h.Login)
+	v1.POST("/suggestion", h.CreateSuggestion)
+	v1.POST("/feedback", h.CreateFeedback)
+
+	// Protected routes (any valid token)
+	protected := v1.Group("")
+	protected.Use(middlewares.AuthMiddleware(cfg.JWTSecret))
 	{
-		v1.GET("/artist/all", h.GetArtists)
-		v1.GET("/country/all", h.GetCountries)
-		v1.GET("/label/all", h.GetLabels)
-		v1.POST("/app/dev/force-sync", h.ForceSync)
+		protected.POST("/auth/logout", h.Logout)
+		protected.GET("/auth/me", h.GetMe)
+
+		protected.GET("/artist/admin/all", h.GetAdminArtists)
+		protected.POST("/artist", h.CreateArtist)
+		protected.PUT("/artist/:id", h.UpdateArtist)
+		protected.DELETE("/artist/:id", h.DeleteArtist)
+		protected.GET("/artist/stats", h.GetArtistStats)
+
+		protected.POST("/source", h.CreateSource)
+
+		protected.POST("/label", h.CreateLabel)
+		protected.PUT("/label/:id", h.UpdateLabel)
+		protected.DELETE("/label/:id", h.DeleteLabel)
+
+		protected.GET("/suggestion", h.GetSuggestions)
+		protected.PATCH("/suggestion/:id/status", h.UpdateSuggestionStatus)
+
+		protected.GET("/feedback", h.GetFeedbacks)
+		protected.DELETE("/feedback/:id", h.DeleteFeedback)
 	}
+
+	// Admin-only routes
+	admin := v1.Group("")
+	admin.Use(middlewares.AuthMiddleware(cfg.JWTSecret))
+	admin.Use(middlewares.RequireRole("ADMIN"))
+	{
+		admin.GET("/auth", h.GetUsers)
+		admin.POST("/auth/register", h.RegisterUser)
+		admin.DELETE("/auth/:id", h.DeleteUser)
+		admin.PATCH("/auth/:id/role", h.UpdateUserRole)
+	}
+
 	errCh := make(chan error, 1)
 	srv := &http.Server{
-		Addr:    ":" + port,
-		Handler: router,
+		Addr:              ":" + port,
+		Handler:           router,
+		ReadHeaderTimeout: 10 * time.Second,
 	}
 
 	go func() {
