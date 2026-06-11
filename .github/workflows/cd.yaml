@@ -85,13 +85,7 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             set -e
-            export GITHUB_REPOSITORY=${{ vars.REPOSITORY_NAME_LOWERCASE }}
-            cd /home/${{ secrets.SSH_USER }}/api
-            echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            docker compose -f docker-compose.prod.yaml pull
-            docker compose -f docker-compose.prod.yaml up -d
-            docker image prune -f
-            export GITHUB_REPOSITORY=${{ vars.REPOSITORY_NAME_LOWERCASE }}
+            export REPOSITORY_NAME_LOWERCASE=${{ vars.REPOSITORY_NAME_LOWERCASE }}
             cd /home/${{ secrets.SSH_USER }}/api
             echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             docker compose -f docker-compose.prod.yaml pull
