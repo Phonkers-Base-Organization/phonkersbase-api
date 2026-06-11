@@ -5,6 +5,8 @@ services:
       PORT: 8080
       GIN_MODE: release
       DB_URL: postgres://app:app@postgres:5432/app?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET}
+      CORS_ORIGIN: ${CORS_ORIGIN}
     healthcheck:      
       test: ["CMD", "wget", "-qO-", "http://api:8080/health"]
       interval: 10s
