@@ -78,23 +78,33 @@ func (r *ArtistRepo) GetAll(ctx context.Context, p domain.ListArtistsParams) (*d
 		if p.Locale == "en" {
 			descCol = "a.description_en"
 		}
-		searchBase := p.Search
-		if i := strings.Index(searchBase, "?"); i != -1 {
-			searchBase = searchBase[:i]
-		}
-		orClauses := []string{
-			fmt.Sprintf("a.name ILIKE $%d", n),
-			fmt.Sprintf("%s ILIKE $%d", descCol, n),
-			fmt.Sprintf("SPLIT_PART(a.link, '?', 1) ILIKE $%d", n),
-		}
-		args = append(args, "%"+searchBase+"%")
-		n++
-		if spotifyID := extractSpotifyID(p.Search); spotifyID != "" {
-			orClauses = append(orClauses, fmt.Sprintf("a.spotify_id = $%d", n))
-			args = append(args, spotifyID)
+		var termClauses []string
+		for term := range strings.SplitSeq(p.Search, ",") {
+			term = strings.TrimSpace(term)
+			if term == "" {
+				continue
+			}
+			searchBase := term
+			if i := strings.Index(searchBase, "?"); i != -1 {
+				searchBase = searchBase[:i]
+			}
+			orClauses := []string{
+				fmt.Sprintf("a.name ILIKE $%d", n),
+				fmt.Sprintf("%s ILIKE $%d", descCol, n),
+				fmt.Sprintf("SPLIT_PART(a.link, '?', 1) ILIKE $%d", n),
+			}
+			args = append(args, "%"+searchBase+"%")
 			n++
+			if spotifyID := extractSpotifyID(term); spotifyID != "" {
+				orClauses = append(orClauses, fmt.Sprintf("a.spotify_id = $%d", n))
+				args = append(args, spotifyID)
+				n++
+			}
+			termClauses = append(termClauses, "("+strings.Join(orClauses, " OR ")+")")
 		}
-		conditions = append(conditions, "("+strings.Join(orClauses, " OR ")+")")
+		if len(termClauses) > 0 {
+			conditions = append(conditions, "("+strings.Join(termClauses, " OR ")+")")
+		}
 	}
 	if len(p.Countries) > 0 {
 		conditions = append(conditions, fmt.Sprintf(
