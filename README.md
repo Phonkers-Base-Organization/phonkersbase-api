@@ -74,7 +74,7 @@ Returns a paginated list of artists.
       "description": "...",
       "descriptionEn": "...",
       "countries": [{ "id": "1", "name": "Ukraine", "originalName": "Україна", "createdAt": "...", "updatedAt": "..." }],
-      "listenLabels": [{ "id": "1", "name": "pride", "originalName": "Наша гордість 💪", "priority": 100, "createdAt": "...", "updatedAt": "..." }],
+      "listenLabels": [{ "id": "1", "name": "pride" }],
       "createdAt": "...",
       "updatedAt": "..."
     }
