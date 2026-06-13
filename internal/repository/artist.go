@@ -543,7 +543,7 @@ func (r *ArtistRepo) fetchCountries(ctx context.Context, artistIDs []int) (map[i
 
 func (r *ArtistRepo) fetchLabels(ctx context.Context, artistIDs []int) (map[int][]domain.LabelRef, error) {
 	rows, err := r.db.Query(ctx, `
-		SELECT al.artist_id, l.id, l.name, l.original_name
+		SELECT al.artist_id, l.id, l.name
 		FROM labels l
 		JOIN artist_labels al ON al.label_id = l.id
 		WHERE al.artist_id = ANY($1)
@@ -557,16 +557,15 @@ func (r *ArtistRepo) fetchLabels(ctx context.Context, artistIDs []int) (map[int]
 	result := map[int][]domain.LabelRef{}
 	for rows.Next() {
 		var (
-			artistID, id       int
-			name, originalName string
+			artistID, id int
+			name         string
 		)
-		if err := rows.Scan(&artistID, &id, &name, &originalName); err != nil {
+		if err := rows.Scan(&artistID, &id, &name); err != nil {
 			return nil, err
 		}
 		result[artistID] = append(result[artistID], domain.LabelRef{
-			ID:           strconv.Itoa(id),
-			Name:         name,
-			OriginalName: originalName,
+			ID:   strconv.Itoa(id),
+			Name: name,
 		})
 	}
 	return result, rows.Err()

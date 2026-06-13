@@ -10,21 +10,19 @@ const (
 )
 
 type Label struct {
-	ID           string    `json:"id"`
-	Name         string    `json:"name"`
-	OriginalName string    `json:"originalName"`
-	Priority     int       `json:"priority"`
-	CreatedAt    time.Time `json:"createdAt"`
-	UpdatedAt    time.Time `json:"updatedAt"`
+	ID        string    `json:"id"`
+	Name      string    `json:"name"`
+	Priority  int       `json:"priority"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
 }
 
 // LabelRef is the slim representation of a label nested inside an artist's
 // listenLabels. Full metadata (priority, timestamps) lives in /label/all and
 // can be correlated by ID.
 type LabelRef struct {
-	ID           string `json:"id"`
-	Name         string `json:"name"`
-	OriginalName string `json:"originalName"`
+	ID   string `json:"id"`
+	Name string `json:"name"`
 }
 
 type EvidenceSource struct {
@@ -139,7 +137,6 @@ type UpsertSourceInput struct {
 }
 
 type UpsertLabelInput struct {
-	Name         string `json:"name" binding:"required"`
-	OriginalName string `json:"originalName" binding:"required"`
-	Priority     int    `json:"priority"`
+	Name     string `json:"name" binding:"required"`
+	Priority int    `json:"priority"`
 }
