@@ -76,7 +76,9 @@ func (h *Handler) GetAdminArtists(c *gin.Context) {
 		}
 	}
 
-	artists, total, err := h.artists.GetAdminAll(c.Request.Context(), limit, offset)
+	search := c.Query("search")
+
+	artists, total, err := h.artists.GetAdminAll(c.Request.Context(), limit, offset, search)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to get admin artists")
 		c.Status(http.StatusInternalServerError)

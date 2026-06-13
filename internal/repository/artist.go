@@ -252,11 +252,50 @@ func (r *ArtistRepo) GetAll(ctx context.Context, p domain.ListArtistsParams) (*d
 	}, nil
 }
 
-func (r *ArtistRepo) GetAdminAll(ctx context.Context, limit, offset int) ([]domain.Artist, int, error) {
+func (r *ArtistRepo) GetAdminAll(ctx context.Context, limit, offset int, search string) ([]domain.Artist, int, error) {
 	args := []any{}
+	conditions := []string{}
+	n := 1
+
+	if search != "" {
+		var termClauses []string
+		for term := range strings.SplitSeq(search, ",") {
+			term = strings.TrimSpace(term)
+			if term == "" {
+				continue
+			}
+			searchBase := term
+			if i := strings.Index(searchBase, "?"); i != -1 {
+				searchBase = searchBase[:i]
+			}
+			orClauses := []string{
+				fmt.Sprintf("a.name ILIKE $%d", n),
+				fmt.Sprintf("a.description_ua ILIKE $%d", n),
+				fmt.Sprintf("a.description_en ILIKE $%d", n),
+				fmt.Sprintf("SPLIT_PART(a.link, '?', 1) ILIKE $%d", n),
+			}
+			args = append(args, "%"+searchBase+"%")
+			n++
+			if spotifyID := extractSpotifyID(term); spotifyID != "" {
+				orClauses = append(orClauses, fmt.Sprintf("a.spotify_id = $%d", n))
+				args = append(args, spotifyID)
+				n++
+			}
+			termClauses = append(termClauses, "("+strings.Join(orClauses, " OR ")+")")
+		}
+		if len(termClauses) > 0 {
+			conditions = append(conditions, "("+strings.Join(termClauses, " OR ")+")")
+		}
+	}
+
+	whereClause := ""
+	if len(conditions) > 0 {
+		whereClause = "WHERE " + strings.Join(conditions, " AND ")
+	}
+
 	limitClause := ""
 	if limit > 0 {
-		limitClause = "LIMIT $1 OFFSET $2"
+		limitClause = fmt.Sprintf("LIMIT $%d OFFSET $%d", n, n+1)
 		args = append(args, limit, offset)
 	}
 
@@ -267,9 +306,10 @@ func (r *ArtistRepo) GetAdminAll(ctx context.Context, limit, offset int) ([]doma
 			a.notes, a.created_at, a.updated_at,
 			COUNT(*) OVER() AS total_count
 		FROM artists a
+		%s
 		ORDER BY a.total_priority DESC, a.id ASC
 		%s
-	`, limitClause)
+	`, whereClause, limitClause)
 
 	rows, err := r.db.Query(ctx, q, args...)
 	if err != nil {
