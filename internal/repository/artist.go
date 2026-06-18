@@ -547,7 +547,7 @@ func (r *ArtistRepo) replaceArtistLabels(ctx context.Context, artistID int, labe
 
 func (r *ArtistRepo) fetchCountries(ctx context.Context, artistIDs []int) (map[int][]domain.ArtistCountry, error) {
 	rows, err := r.db.Query(ctx, `
-		SELECT ac.artist_id, ac.code, es.id, es.name
+		SELECT ac.artist_id, ac.code, es.id, es.name, es.name_uk, es.name_en
 		FROM artist_countries ac
 		LEFT JOIN evidence_sources es ON es.id = ac.source_id
 		WHERE ac.artist_id = ANY($1)
@@ -561,19 +561,23 @@ func (r *ArtistRepo) fetchCountries(ctx context.Context, artistIDs []int) (map[i
 	result := map[int][]domain.ArtistCountry{}
 	for rows.Next() {
 		var (
-			artistID   int
-			code       string
-			sourceID   *int
-			sourceName *string
+			artistID       int
+			code           string
+			sourceID       *int
+			sourceName     *string
+			sourceNameUk   *string
+			sourceNameEn   *string
 		)
-		if err := rows.Scan(&artistID, &code, &sourceID, &sourceName); err != nil {
+		if err := rows.Scan(&artistID, &code, &sourceID, &sourceName, &sourceNameUk, &sourceNameEn); err != nil {
 			return nil, err
 		}
 		var source *domain.SourceRef
 		if sourceID != nil {
 			source = &domain.SourceRef{
-				ID:   strconv.Itoa(*sourceID),
-				Name: *sourceName,
+				ID:     strconv.Itoa(*sourceID),
+				Name:   *sourceName,
+				NameUk: derefStr(sourceNameUk),
+				NameEn: derefStr(sourceNameEn),
 			}
 		}
 		result[artistID] = append(result[artistID], domain.ArtistCountry{Code: code, Source: source})
@@ -667,4 +671,11 @@ func safeDir(d domain.SortDirection) string {
 		return "DESC"
 	}
 	return "ASC"
+}
+
+func derefStr(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }

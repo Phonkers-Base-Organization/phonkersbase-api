@@ -28,6 +28,8 @@ type LabelRef struct {
 type EvidenceSource struct {
 	ID        string    `json:"id"`
 	Name      string    `json:"name"`
+	NameUk    string    `json:"nameUk"`
+	NameEn    string    `json:"nameEn"`
 	CreatedAt time.Time `json:"createdAt"`
 }
 
@@ -35,8 +37,10 @@ type EvidenceSource struct {
 // artist country entry. Full metadata lives in /source/all and can be
 // correlated by ID.
 type SourceRef struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+	ID     string `json:"id"`
+	Name   string `json:"name"`
+	NameUk string `json:"nameUk"`
+	NameEn string `json:"nameEn"`
 }
 
 type ArtistCountry struct {
@@ -133,7 +137,9 @@ type UpsertArtistInput struct {
 }
 
 type UpsertSourceInput struct {
-	Name string `json:"name" binding:"required"`
+	Name   string `json:"name" binding:"required"`
+	NameUk string `json:"nameUk"`
+	NameEn string `json:"nameEn"`
 }
 
 type UpsertLabelInput struct {

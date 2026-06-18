@@ -106,7 +106,6 @@ func Run() error {
 		protected.DELETE("/artist/:id", h.DeleteArtist)
 		protected.GET("/artist/stats", h.GetArtistStats)
 
-		protected.POST("/source", h.CreateSource)
 
 		protected.POST("/label", h.CreateLabel)
 		protected.PUT("/label/:id", h.UpdateLabel)
@@ -128,6 +127,10 @@ func Run() error {
 		admin.POST("/auth/register", h.RegisterUser)
 		admin.DELETE("/auth/:id", h.DeleteUser)
 		admin.PATCH("/auth/:id/role", h.UpdateUserRole)
+
+		admin.POST("/source", h.CreateSource)
+		admin.PUT("/source/:id", h.UpdateSource)
+		admin.DELETE("/source/:id", h.DeleteSource)
 	}
 
 	errCh := make(chan error, 1)
