@@ -52,8 +52,8 @@ func Run() error {
 		return err
 	}
 	defer dbpool.Close()
-
-	if err := runMigrations(initCtx, dbpool); err != nil {
+	err = runMigrations(initCtx, dbpool)
+	if err != nil {
 		return err
 	}
 	log.Info().Msg("database migrations applied")
