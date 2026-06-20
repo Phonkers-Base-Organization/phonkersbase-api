@@ -20,6 +20,12 @@ import (
 
 const meterName = "github.com/PhonkersBase/base-api2"
 
+// durationBucketBoundaries are second-scale buckets for sub-second API/DB
+// latencies. The OTel SDK's default boundaries (5, 10, 25, ...) are
+// unit-agnostic and tuned for millisecond-scale values, so they give almost
+// no resolution for the second-scale durations recorded here.
+var durationBucketBoundaries = []float64{0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1, 2.5, 5}
+
 var (
 	httpRequestDuration metric.Float64Histogram
 	dbQueryDuration      metric.Float64Histogram
@@ -38,6 +44,7 @@ func mustInitInstruments(meter metric.Meter) {
 		"http.server.request.duration",
 		metric.WithDescription("Duration of HTTP requests"),
 		metric.WithUnit("s"),
+		metric.WithExplicitBucketBoundaries(durationBucketBoundaries...),
 	)
 	if err != nil {
 		panic(err)
@@ -47,6 +54,7 @@ func mustInitInstruments(meter metric.Meter) {
 		"db.client.query.duration",
 		metric.WithDescription("Duration of database queries"),
 		metric.WithUnit("s"),
+		metric.WithExplicitBucketBoundaries(durationBucketBoundaries...),
 	)
 	if err != nil {
 		panic(err)
