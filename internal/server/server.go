@@ -40,7 +40,11 @@ func Run() error {
 	initCtx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
 	defer cancel()
 
-	metricsShutdown, err := metrics.Init(initCtx, "pb-api2")
+	serviceName := os.Getenv("OTEL_SERVICE_NAME")
+	if serviceName == "" {
+		serviceName = "pb-api2"
+	}
+	metricsShutdown, err := metrics.Init(initCtx, serviceName)
 	if err != nil {
 		return err
 	}
