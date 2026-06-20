@@ -114,7 +114,6 @@ func Run() error {
 		protected.DELETE("/artist/:id", h.DeleteArtist)
 		protected.GET("/artist/stats", h.GetArtistStats)
 
-
 		protected.POST("/label", h.CreateLabel)
 		protected.PUT("/label/:id", h.UpdateLabel)
 		protected.DELETE("/label/:id", h.DeleteLabel)
