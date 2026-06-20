@@ -7,7 +7,6 @@ package metrics
 
 import (
 	"context"
-	"os"
 	"time"
 
 	"go.opentelemetry.io/contrib/instrumentation/runtime"
@@ -63,14 +62,14 @@ func mustInitInstruments(meter metric.Meter) {
 }
 
 // Init configures the global MeterProvider and re-binds package-level
-// instruments to it. If OTEL_EXPORTER_OTLP_ENDPOINT is not set, metrics
-// stay bound to the SDK's default no-op provider so local dev doesn't need
-// a collector configured.
+// instruments to it. If otlpEndpoint is empty, metrics stay bound to the
+// SDK's default no-op provider so local dev doesn't need a collector
+// configured.
 //
 // The returned shutdown func flushes and stops the exporter; call it during
 // graceful shutdown.
-func Init(ctx context.Context, serviceName string) (shutdown func(context.Context) error, err error) {
-	if os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT") == "" {
+func Init(ctx context.Context, serviceName, otlpEndpoint string) (shutdown func(context.Context) error, err error) {
+	if otlpEndpoint == "" {
 		return func(context.Context) error { return nil }, nil
 	}
 

@@ -32,7 +32,7 @@ There is no separate lint step in CI beyond `go vet`.
 Layered, single binary, entry point `cmd/api/main.go` → `internal/server.Run()`.
 
 - `internal/server/server.go` — wires everything together: loads config, connects to Postgres, runs migrations, builds the `Handler` via `handlers.NewHandler(...)` with all repos injected, sets up the Gin router and routes, and handles graceful shutdown on `SIGINT`.
-- `internal/config/config.go` — typed config loaded from env vars (`DB_URL`, `JWT_SECRET`, `CORS_ORIGIN`, `PORT`), validated via `go-playground/validator`. Fails fast on invalid config.
+- `internal/config/config.go` — typed config loaded from env vars (`DB_URL`, `JWT_SECRET`, `CORS_ORIGIN`, `PORT`, `OTEL_SERVICE_NAME`, `OTEL_EXPORTER_OTLP_ENDPOINT`), validated via `go-playground/validator`. Fails fast on invalid config. **Rule: `os.Getenv` only appears in this file.** Every other package receives config values as explicit parameters/struct fields from `cfg`, never reads env vars itself — this keeps env-var validation and defaulting in one place instead of scattered across the codebase.
 - `internal/handlers/` — Gin handlers, one file per resource (artist, label, source, suggestion, feedback, auth). All share a single `Handler` struct holding repo dependencies and `jwtSecret`.
 - `internal/repository/` — Postgres data access via raw SQL with `pgx/v5`, one file per resource. `ErrNotFound` (defined in `repository/artist.go`) is the sentinel translated to HTTP 404 by handlers.
 - `internal/domain/models.go` — domain types and DTOs (request inputs, list params) shared between handlers and repositories.

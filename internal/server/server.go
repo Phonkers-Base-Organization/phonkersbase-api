@@ -32,19 +32,10 @@ func Run() error {
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 	log.Logger = zerolog.New(os.Stdout).With().Timestamp().Logger().Hook(metrics.ErrorHook{})
 
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
-
 	initCtx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
 	defer cancel()
 
-	serviceName := os.Getenv("OTEL_SERVICE_NAME")
-	if serviceName == "" {
-		serviceName = "pb-api2"
-	}
-	metricsShutdown, err := metrics.Init(initCtx, serviceName)
+	metricsShutdown, err := metrics.Init(initCtx, cfg.OTELServiceName, cfg.OTELExporterEndpoint)
 	if err != nil {
 		return err
 	}
@@ -152,13 +143,13 @@ func Run() error {
 
 	errCh := make(chan error, 1)
 	srv := &http.Server{
-		Addr:              ":" + port,
+		Addr:              ":" + cfg.Port,
 		Handler:           router,
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 
 	go func() {
-		log.Info().Msgf("starting server on port %s", port)
+		log.Info().Msgf("starting server on port %s", cfg.Port)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			errCh <- err
 		}
