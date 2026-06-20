@@ -9,16 +9,22 @@ import (
 )
 
 type Config struct {
-	DatabaseURL string `validate:"required,uri"`
-	JWTSecret   string `validate:"required,min=32"`
-	CORSOrigins []string
+	DatabaseURL          string `validate:"required,uri"`
+	JWTSecret            string `validate:"required,min=32"`
+	CORSOrigins          []string
+	Port                 string `validate:"required,numeric"`
+	OTELServiceName      string `validate:"required"`
+	OTELExporterEndpoint string `validate:"omitempty,uri"`
 }
 
 func Load() (*Config, error) {
 	config := &Config{
-		DatabaseURL: os.Getenv("DB_URL"),
-		JWTSecret:   os.Getenv("JWT_SECRET"),
-		CORSOrigins: parseCORSOrigins(os.Getenv("CORS_ORIGIN")),
+		DatabaseURL:          os.Getenv("DB_URL"),
+		JWTSecret:            os.Getenv("JWT_SECRET"),
+		CORSOrigins:          parseCORSOrigins(os.Getenv("CORS_ORIGIN")),
+		Port:                 envOrDefault("PORT", "8080"),
+		OTELServiceName:      envOrDefault("OTEL_SERVICE_NAME", "pb-api2"),
+		OTELExporterEndpoint: os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
 	}
 
 	validate := validator.New()
@@ -32,6 +38,13 @@ func Load() (*Config, error) {
 	}
 
 	return config, nil
+}
+
+func envOrDefault(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
 }
 
 func parseCORSOrigins(raw string) []string {
