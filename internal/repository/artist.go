@@ -561,12 +561,12 @@ func (r *ArtistRepo) fetchCountries(ctx context.Context, artistIDs []int) (map[i
 	result := map[int][]domain.ArtistCountry{}
 	for rows.Next() {
 		var (
-			artistID       int
-			code           string
-			sourceID       *int
-			sourceName     *string
-			sourceNameUk   *string
-			sourceNameEn   *string
+			artistID     int
+			code         string
+			sourceID     *int
+			sourceName   *string
+			sourceNameUk *string
+			sourceNameEn *string
 		)
 		if err := rows.Scan(&artistID, &code, &sourceID, &sourceName, &sourceNameUk, &sourceNameEn); err != nil {
 			return nil, err

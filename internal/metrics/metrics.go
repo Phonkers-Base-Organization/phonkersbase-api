@@ -28,8 +28,8 @@ var durationBucketBoundaries = []float64{0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0
 
 var (
 	httpRequestDuration metric.Float64Histogram
-	dbQueryDuration      metric.Float64Histogram
-	errorsTotal          metric.Int64Counter
+	dbQueryDuration     metric.Float64Histogram
+	errorsTotal         metric.Int64Counter
 )
 
 func init() {

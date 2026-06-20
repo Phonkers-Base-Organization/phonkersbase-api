@@ -148,7 +148,6 @@ func (h *Handler) GetArtistStats(c *gin.Context) {
 	c.JSON(http.StatusOK, stats)
 }
 
-
 func splitCSV(s string) []string {
 	parts := strings.Split(s, ",")
 	out := make([]string, 0, len(parts))
