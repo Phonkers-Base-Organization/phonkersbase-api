@@ -307,7 +307,7 @@ func (r *ArtistRepo) GetAdminAll(ctx context.Context, limit, offset int, search 
 			COUNT(*) OVER() AS total_count
 		FROM artists a
 		%s
-		ORDER BY a.total_priority DESC, a.id ASC
+		ORDER BY a.updated_at DESC, a.id ASC
 		%s
 	`, whereClause, limitClause)
 
