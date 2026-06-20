@@ -18,6 +18,7 @@ internal/
   config/config.go           # Env variable loading & validation
   domain/models.go           # Domain types
   handlers/                  # HTTP handlers
+  metrics/                   # OpenTelemetry metrics (HTTP/DB latency, errors, Go runtime)
   middlewares/ratelimit.go   # Per-IP rate limiting
   migrations/                # Embedded SQL migrations
   repository/                # PostgreSQL data access
@@ -39,6 +40,19 @@ docker compose up
 | `JWT_SECRET` | Yes | — | JWT signing secret, min 32 chars |
 | `CORS_ORIGIN` | No | `http://localhost:3000` | Comma-separated list of allowed CORS origins |
 | `PORT` | No | `8080` | HTTP listen port |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | No | — | OTLP endpoint for metrics export. Unset disables metrics (instruments become no-ops) |
+| `OTEL_EXPORTER_OTLP_PROTOCOL` | No | — | OTLP protocol, e.g. `http/protobuf` |
+| `OTEL_EXPORTER_OTLP_HEADERS` | No | — | OTLP request headers, e.g. `Authorization=Basic <base64>` for Grafana Cloud |
+
+## Observability
+
+- `GET /health` — liveness check (204), skipped by request logging.
+- Metrics are collected via OpenTelemetry and pushed over OTLP (no `/metrics` scrape endpoint — see `internal/metrics/`):
+  - `http.server.request.duration` — HTTP latency, labeled by method/route/status
+  - `db.client.query.duration` — Postgres query latency, labeled by SQL verb and error
+  - `app.errors` — counter incremented automatically on every `Error`/`Fatal` zerolog event
+  - Go runtime metrics (GC, heap, goroutines) via `go.opentelemetry.io/contrib/instrumentation/runtime`
+- Structured JSON logs via `zerolog`, one line per request (method, path, status, latency, IP).
 
 ## API Reference
 

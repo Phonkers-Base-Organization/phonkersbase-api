@@ -16,6 +16,7 @@ import (
 
 	"github.com/PhonkersBase/base-api2/internal/config"
 	"github.com/PhonkersBase/base-api2/internal/handlers"
+	"github.com/PhonkersBase/base-api2/internal/metrics"
 	"github.com/PhonkersBase/base-api2/internal/middlewares"
 	"github.com/PhonkersBase/base-api2/internal/migrations"
 	"github.com/PhonkersBase/base-api2/internal/repository"
@@ -29,7 +30,7 @@ func Run() error {
 
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
-	log.Logger = zerolog.New(os.Stdout).With().Timestamp().Logger()
+	log.Logger = zerolog.New(os.Stdout).With().Timestamp().Logger().Hook(metrics.ErrorHook{})
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -38,6 +39,18 @@ func Run() error {
 
 	initCtx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
 	defer cancel()
+
+	metricsShutdown, err := metrics.Init(initCtx, "pb-api2")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := metricsShutdown(shutdownCtx); err != nil {
+			log.Error().Err(err).Msg("failed to shut down metrics exporter")
+		}
+	}()
 
 	dbpool, err := initDB(initCtx, cfg.DatabaseURL)
 	if err != nil {
@@ -173,6 +186,7 @@ func initDB(ctx context.Context, databaseURL string) (*pgxpool.Pool, error) {
 	if err != nil {
 		return nil, err
 	}
+	cfg.ConnConfig.Tracer = metrics.NewDBTracer()
 	return pgxpool.NewWithConfig(ctx, cfg)
 }
 
@@ -214,6 +228,12 @@ func logger(skipPaths ...string) gin.HandlerFunc {
 
 		latency := time.Since(start)
 		status := c.Writer.Status()
+
+		route := c.FullPath()
+		if route == "" {
+			route = "unmatched"
+		}
+		metrics.RecordHTTPRequest(c.Request.Context(), c.Request.Method, route, status, latency)
 
 		event := log.Info()
 		if status >= 500 {
