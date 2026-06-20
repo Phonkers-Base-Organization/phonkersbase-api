@@ -96,6 +96,26 @@ jobs:
             export REPOSITORY_NAME_LOWERCASE=${{ vars.REPOSITORY_NAME_LOWERCASE }}
             cd /home/${{ secrets.SSH_USER }}/api
             echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            NEW_TAG="${{ github.event.workflow_run.head_sha }}"
+            MARKER=last_good_sha
+            PREV_TAG=""
+            [ -f "$MARKER" ] && PREV_TAG=$(cat "$MARKER")
+
+            export API_TAG="$NEW_TAG"
             docker compose -f docker-compose.prod.yaml pull
-            docker compose -f docker-compose.prod.yaml up -d
-            docker image prune -f
+            if docker compose -f docker-compose.prod.yaml up -d --wait --wait-timeout 60; then
+              echo "$NEW_TAG" > "$MARKER"
+              docker image prune -f
+            else
+              echo "deploy of $NEW_TAG failed to become healthy"
+              if [ -n "$PREV_TAG" ]; then
+                echo "rolling back to $PREV_TAG"
+                export API_TAG="$PREV_TAG"
+                docker compose -f docker-compose.prod.yaml pull
+                docker compose -f docker-compose.prod.yaml up -d --wait --wait-timeout 60
+              else
+                echo "no previous known-good tag to roll back to"
+              fi
+              exit 1
+            fi

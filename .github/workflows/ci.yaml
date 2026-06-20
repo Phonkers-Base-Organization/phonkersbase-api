@@ -12,6 +12,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-go@v5
         with:
           go-version: '1.26.2'
@@ -29,4 +31,19 @@ jobs:
 
       - name: Vet
         run: go vet ./...
-     
+
+      - name: Enforce single migration per change
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="origin/${{ github.base_ref }}"
+          else
+            BASE="${{ github.event.before }}"
+          fi
+          if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ]; then
+            exit 0
+          fi
+          ADDED=$(git diff --name-only --diff-filter=A "$BASE"...HEAD -- 'internal/migrations/*.sql' | wc -l)
+          if [ "$ADDED" -gt 1 ]; then
+            echo "::error::This change adds $ADDED migration files. Ship at most one migration per deploy so rollback stays safe."
+            exit 1
+          fi

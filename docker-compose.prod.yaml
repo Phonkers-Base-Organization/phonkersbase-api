@@ -1,6 +1,6 @@
 services:
   api:
-    image: ghcr.io/${REPOSITORY_NAME_LOWERCASE}/api:latest
+    image: ghcr.io/${REPOSITORY_NAME_LOWERCASE}/api:${API_TAG}
     environment:
       PORT: 8080
       GIN_MODE: release
