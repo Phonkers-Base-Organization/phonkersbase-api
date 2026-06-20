@@ -7,6 +7,9 @@ services:
       DB_URL: postgres://app:app@postgres:5432/app?sslmode=disable
       JWT_SECRET: ${JWT_SECRET}
       CORS_ORIGIN: ${CORS_ORIGIN}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}
+      OTEL_EXPORTER_OTLP_PROTOCOL: ${OTEL_EXPORTER_OTLP_PROTOCOL}
+      OTEL_EXPORTER_OTLP_HEADERS: ${OTEL_EXPORTER_OTLP_HEADERS}
     healthcheck:      
       test: ["CMD", "wget", "-qO-", "http://api:8080/health"]
       interval: 10s
