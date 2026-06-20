@@ -122,7 +122,11 @@ jobs:
                 echo "rolling back to $PREV_TAG"
                 export API_TAG="$PREV_TAG"
                 docker compose -f docker-compose.prod.yaml pull
-                docker compose -f docker-compose.prod.yaml up -d --wait --wait-timeout 60
+                if docker compose -f docker-compose.prod.yaml up -d --wait --wait-timeout 60; then
+                  echo "rollback to $PREV_TAG succeeded"
+                else
+                  echo "rollback to $PREV_TAG also failed to become healthy"
+                fi
               else
                 echo "no previous known-good tag to roll back to"
               fi
