@@ -35,7 +35,7 @@ jobs:
         # Read changed against latest image
         run: |
           SHA="${{ github.event.workflow_run.head_sha }}"
-          BEFORE=$(skopeo inspect --format '{{index .Labels "org.opencontainers.image.revision"}}' docker://ghcr.io/${{ vars.REPOSITORY_NAME_LOWERCASE }}/api:latest 2>/dev/null || echo "")
+          BEFORE=$(skopeo inspect --format '{{index .Labels "org.opencontainers.image.revision"}}' docker://ghcr.io/${{ vars.REPOSITORY_NAME_LOWERCASE }}/api:deployed 2>/dev/null || echo "")
           if [ -z "$BEFORE" ] || [ "$BEFORE" = "$SHA" ]; then
             echo "api=true" >> "$GITHUB_OUTPUT"
             echo "compose=true" >> "$GITHUB_OUTPUT"
@@ -97,15 +97,24 @@ jobs:
             cd /home/${{ secrets.SSH_USER }}/api
             echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-            NEW_TAG="${{ github.event.workflow_run.head_sha }}"
             MARKER=last_good_sha
             PREV_TAG=""
             [ -f "$MARKER" ] && PREV_TAG=$(cat "$MARKER")
+
+            if [ "${{ needs.build-and-push.outputs.api_built }}" = "true" ]; then
+              NEW_TAG="${{ github.event.workflow_run.head_sha }}"
+            elif [ -n "$PREV_TAG" ]; then
+              NEW_TAG="$PREV_TAG"
+            else
+              NEW_TAG="latest"
+            fi
 
             export API_TAG="$NEW_TAG"
             docker compose -f docker-compose.prod.yaml pull
             if docker compose -f docker-compose.prod.yaml up -d --wait --wait-timeout 60; then
               echo "$NEW_TAG" > "$MARKER"
+              docker tag "ghcr.io/${REPOSITORY_NAME_LOWERCASE}/api:$NEW_TAG" "ghcr.io/${REPOSITORY_NAME_LOWERCASE}/api:deployed"
+              docker push "ghcr.io/${REPOSITORY_NAME_LOWERCASE}/api:deployed"
               docker image prune -f
             else
               echo "deploy of $NEW_TAG failed to become healthy"
