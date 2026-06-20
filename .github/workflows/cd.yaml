@@ -71,7 +71,7 @@ jobs:
   deploy:
     needs: build-and-push
     runs-on: ubuntu-latest
-    environment: production
+    environment: prod
 
     if: ${{ needs.build-and-push.outputs.api_built == 'true' || needs.build-and-push.outputs.compose_changed == 'true' }}
     steps:
