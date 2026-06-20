@@ -26,10 +26,6 @@ func Run() error {
 	if err != nil {
 		return err
 	}
-	
-	if true{
-		panic("test CD rollback")
-	}
 
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
