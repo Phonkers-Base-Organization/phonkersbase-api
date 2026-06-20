@@ -144,7 +144,7 @@ func (r *ArtistRepo) GetAll(ctx context.Context, p domain.ListArtistsParams) (*d
 		orderParts = append(orderParts, "a.total_priority "+safeDir(p.ByListen))
 	}
 	if len(orderParts) == 0 {
-		orderParts = []string{"a.total_priority DESC"}
+		orderParts = []string{"a.total_priority DESC, a.updated_at DESC"}
 	}
 	orderParts = append(orderParts, "a.id ASC")
 	orderClause := "ORDER BY " + strings.Join(orderParts, ", ")
