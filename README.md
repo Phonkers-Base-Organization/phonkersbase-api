@@ -36,6 +36,8 @@ docker compose up
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `DB_URL` | Yes | — | PostgreSQL connection string |
+| `JWT_SECRET` | Yes | — | JWT signing secret, min 32 chars |
+| `CORS_ORIGIN` | No | `http://localhost:3000` | Comma-separated list of allowed CORS origins |
 | `PORT` | No | `8080` | HTTP listen port |
 
 ## API Reference
@@ -44,21 +46,23 @@ All routes are prefixed with `/api/v1` and rate-limited to **50 requests/minute 
 
 ### GET `/api/v1/artist/all`
 
-Returns a paginated list of artists.
+Returns a paginated list of artists. Public endpoint.
 
 **Query Parameters**
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `locale` | `uk` \| `en` | **Required.** Language for description field |
-| `search` | string | Free-text search on name and description |
-| `country` | string | Comma-separated country names to filter by |
+| `locale` | `uk` \| `en` | Language for description field (default: `uk`) |
+| `search` | string | Free-text search on name, description, and Spotify ID |
+| `country` | string | Comma-separated ISO country codes to filter by (e.g. `UA,PL`) |
 | `label` | string | Comma-separated label names to filter by |
 | `offset` | int | Pagination offset (default: `0`) |
 | `limit` | int | Page size, 1–200 (default: `50`) |
 | `by_artist` | `asc` \| `desc` | Sort by artist name |
-| `by_country` | `asc` \| `desc` | Sort by first country |
+| `by_country` | `asc` \| `desc` | Sort by first country code |
 | `by_listen` | `asc` \| `desc` | Sort by total label priority |
+
+If none of the sort params are given, results default to `total_priority DESC, updated_at DESC`. Any combination of sort params can be combined; `id ASC` is always appended as a final tiebreaker.
 
 **Response**
 
@@ -73,7 +77,13 @@ Returns a paginated list of artists.
       "avatarUrl": "https://...",
       "description": "...",
       "descriptionEn": "...",
-      "countries": [{ "id": "1", "name": "Ukraine", "originalName": "Україна", "createdAt": "...", "updatedAt": "..." }],
+      "notes": "...",
+      "countries": [
+        {
+          "code": "UA",
+          "source": { "id": "1", "name": "Spotify опис", "nameUk": "Spotify опис", "nameEn": "Spotify description" }
+        }
+      ],
       "listenLabels": [{ "id": "1", "name": "pride" }],
       "createdAt": "...",
       "updatedAt": "..."
@@ -89,23 +99,32 @@ Returns a paginated list of artists.
 }
 ```
 
-### GET `/api/v1/country/all`
-
-Returns all countries ordered by name.
-
 ### GET `/api/v1/label/all`
 
-Returns all labels ordered by priority (descending), then name.
+Returns all labels ordered by priority (descending), then name. Public endpoint.
 
 **Label names:** `approved`, `blocked`, `warning`, `unknown`, `pride`, `base`
 
-### POST `/api/v1/app/dev/force-sync`
+### GET `/api/v1/source/all`
 
-Development endpoint stub. Returns `{"success": true, "message": "sync triggered"}`.
+Returns all evidence sources (used to record how an artist's country was determined), with bilingual (`nameUk`/`nameEn`) names. Public endpoint.
+
+### Admin-only endpoints (require `ADMIN` role)
+
+- `POST`/`PUT`/`DELETE` `/api/v1/label`, `/api/v1/label/:id` — label CRUD (protected, any authenticated user)
+- `POST`/`PUT`/`DELETE` `/api/v1/source`, `/api/v1/source/:id` — evidence source CRUD (admin-only)
+- `GET`/`POST`/`PUT`/`DELETE` `/api/v1/artist/admin/all`, `/api/v1/artist`, `/api/v1/artist/:id` — artist CRUD and admin listing (protected)
+- `GET` `/api/v1/artist/stats` — artist counts/last-added stats (protected)
+- `GET`/`PATCH` `/api/v1/suggestion`, `/api/v1/suggestion/:id/status` — review submitted artist suggestions (protected)
+- `GET`/`DELETE` `/api/v1/feedback`, `/api/v1/feedback/:id` — review submitted feedback (protected)
+- `/api/v1/auth/*` — login (public), logout/me (protected), user management (admin-only)
 
 ## Database Schema
 
-- **artists** — core entity with optional Spotify metadata, description in UA/EN, country array, and computed `total_priority`
-- **countries** — reference table
+- **artists** — core entity with optional Spotify metadata, description in UA/EN, free-text `notes`, and computed `total_priority`
 - **labels** — categorization labels with priority weights
 - **artist_labels** — many-to-many join; a trigger automatically recalculates `total_priority` on insert/update
+- **artist_countries** — per-artist ISO country codes (ordered by `position`), each optionally linked to an `evidence_sources` row
+- **evidence_sources** — bilingual catalog of how a country was determined for an artist
+- **suggestions**, **feedbacks** — public submissions awaiting admin review
+- **users** — admin/editor accounts for JWT auth
