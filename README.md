@@ -29,7 +29,7 @@ internal/
 
 **Run with hot-reload:**
 ```bash
-docker compose up
+docker compose -f docker-compose.dev.yaml up
 ```
 
 ## Environment Variables
@@ -43,6 +43,7 @@ docker compose up
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | No | — | OTLP endpoint for metrics export. Unset disables metrics (instruments become no-ops) |
 | `OTEL_EXPORTER_OTLP_PROTOCOL` | No | — | OTLP protocol, e.g. `http/protobuf` |
 | `OTEL_EXPORTER_OTLP_HEADERS` | No | — | OTLP request headers, e.g. `Authorization=Basic <base64>` for Grafana Cloud |
+| `LOKI_URL` | No | — | Required for Loki docker driver |
 
 ## Observability
 
