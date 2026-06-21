@@ -23,6 +23,7 @@ services:
 
   postgres:
     image: postgres:17-alpine
+    command: ["postgres", "-c", "log_statement=all"]
     environment:
       POSTGRES_USER: app
       POSTGRES_PASSWORD: app
