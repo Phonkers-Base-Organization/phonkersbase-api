@@ -10,11 +10,17 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}
       OTEL_EXPORTER_OTLP_PROTOCOL: ${OTEL_EXPORTER_OTLP_PROTOCOL}
       OTEL_EXPORTER_OTLP_HEADERS: ${OTEL_EXPORTER_OTLP_HEADERS}
-    healthcheck:      
+    healthcheck:
       test: ["CMD", "wget", "-qO-", "http://api:8080/health"]
       interval: 10s
       timeout: 5s
       retries: 5
+    logging:
+      driver: loki
+      options:
+        loki-url: ${LOKI_URL}
+        loki-retries: "5"
+        loki-batch-size: "400"
     depends_on:
       postgres:
         condition: service_healthy
