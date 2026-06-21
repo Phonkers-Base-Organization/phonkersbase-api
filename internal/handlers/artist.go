@@ -21,9 +21,15 @@ func (h *Handler) GetArtists(c *gin.Context) {
 		return
 	}
 
+	search := c.Query("search")
+	if msg := validateSearch(search); msg != "" {
+		c.JSON(http.StatusBadRequest, gin.H{"errors": gin.H{"search": msg}})
+		return
+	}
+
 	p := domain.ListArtistsParams{
 		Locale:    locale,
-		Search:    c.Query("search"),
+		Search:    search,
 		ByArtist:  domain.SortDirection(c.Query("by_artist")),
 		ByCountry: domain.SortDirection(c.Query("by_country")),
 		ByListen:  domain.SortDirection(c.Query("by_listen")),
@@ -77,6 +83,10 @@ func (h *Handler) GetAdminArtists(c *gin.Context) {
 	}
 
 	search := c.Query("search")
+	if msg := validateSearch(search); msg != "" {
+		c.JSON(http.StatusBadRequest, gin.H{"errors": gin.H{"search": msg}})
+		return
+	}
 
 	artists, total, err := h.artists.GetAdminAll(c.Request.Context(), limit, offset, search)
 	if err != nil {
@@ -146,6 +156,32 @@ func (h *Handler) GetArtistStats(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, stats)
+}
+
+const (
+	maxSearchLen   = 2048
+	maxSearchTerms = 50
+)
+
+// validateSearch bounds the `search` query param before any parsing happens, so a single
+// oversized string or term-heavy comma list can't force an unbounded allocation or an
+// excessively large OR-tree in the repository query. Returns a client-facing message, or ""
+// if the value is within bounds.
+func validateSearch(search string) string {
+	if len(search) > maxSearchLen {
+		return "must not exceed " + strconv.Itoa(maxSearchLen) + " characters"
+	}
+	count := 0
+	for term := range strings.SplitSeq(search, ",") {
+		if strings.TrimSpace(term) == "" {
+			continue
+		}
+		count++
+		if count > maxSearchTerms {
+			return "must not contain more than " + strconv.Itoa(maxSearchTerms) + " comma-separated terms"
+		}
+	}
+	return ""
 }
 
 func splitCSV(s string) []string {
