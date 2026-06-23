@@ -9,12 +9,7 @@ import (
 )
 
 func (h *Handler) GetSuggestions(c *gin.Context) {
-	status := c.Query("status")
-	if status == "" {
-		status = "pending"
-	}
-
-	suggestions, err := h.suggestions.GetAll(c.Request.Context(), status)
+	suggestions, err := h.suggestions.GetAll(c.Request.Context())
 	if err != nil {
 		log.Error().Err(err).Msg("failed to get suggestions")
 		c.Status(http.StatusInternalServerError)
@@ -23,29 +18,14 @@ func (h *Handler) GetSuggestions(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"suggestions": suggestions})
 }
 
-func (h *Handler) UpdateSuggestionStatus(c *gin.Context) {
+func (h *Handler) DeleteSuggestion(c *gin.Context) {
 	id := c.Param("id")
-	var body struct {
-		Status string `json:"status" binding:"required"`
-	}
-	if err := c.ShouldBindJSON(&body); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid request"})
-		return
-	}
-
-	switch body.Status {
-	case "pending", "done", "deleted":
-	default:
-		c.JSON(http.StatusBadRequest, gin.H{"message": "status must be one of: pending, done, deleted"})
-		return
-	}
-
-	if err := h.suggestions.UpdateStatus(c.Request.Context(), id, body.Status); err != nil {
+	if err := h.suggestions.Delete(c.Request.Context(), id); err != nil {
 		if err == repository.ErrNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"message": "suggestion not found"})
 			return
 		}
-		log.Error().Err(err).Msg("failed to update suggestion status")
+		log.Error().Err(err).Msg("failed to delete suggestion")
 		c.Status(http.StatusInternalServerError)
 		return
 	}

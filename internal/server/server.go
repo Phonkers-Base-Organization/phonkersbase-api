@@ -119,7 +119,6 @@ func Run() error {
 		protected.DELETE("/label/:id", h.DeleteLabel)
 
 		protected.GET("/suggestion", h.GetSuggestions)
-		protected.PATCH("/suggestion/:id/status", h.UpdateSuggestionStatus)
 
 		protected.GET("/feedback", h.GetFeedbacks)
 		protected.DELETE("/feedback/:id", h.DeleteFeedback)
@@ -138,6 +137,8 @@ func Run() error {
 		admin.POST("/source", h.CreateSource)
 		admin.PUT("/source/:id", h.UpdateSource)
 		admin.DELETE("/source/:id", h.DeleteSource)
+
+		admin.DELETE("/suggestion/:id", h.DeleteSuggestion)
 	}
 
 	errCh := make(chan error, 1)

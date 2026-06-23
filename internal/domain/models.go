@@ -102,7 +102,6 @@ type Suggestion struct {
 	ListenLabels []string  `json:"listenLabels"`
 	Evidence     *string   `json:"evidence"`
 	Description  *string   `json:"description"`
-	Status       string    `json:"status"`
 	CreatedAt    time.Time `json:"createdAt"`
 }
 

@@ -17,16 +17,12 @@ func NewSuggestionRepo(db *pgxpool.Pool) *SuggestionRepo {
 	return &SuggestionRepo{db: db}
 }
 
-func (r *SuggestionRepo) GetAll(ctx context.Context, status string) ([]domain.Suggestion, error) {
-	if status == "" {
-		status = "pending"
-	}
+func (r *SuggestionRepo) GetAll(ctx context.Context) ([]domain.Suggestion, error) {
 	rows, err := r.db.Query(ctx, `
-		SELECT id, name, link, countries, listen_labels, evidence, description, status, created_at
+		SELECT id, name, link, countries, listen_labels, evidence, description, created_at
 		FROM suggestions
-		WHERE status = $1
 		ORDER BY created_at DESC
-	`, status)
+	`)
 	if err != nil {
 		return nil, err
 	}
@@ -40,7 +36,7 @@ func (r *SuggestionRepo) GetAll(ctx context.Context, status string) ([]domain.Su
 		)
 		if err := rows.Scan(
 			&id, &s.Name, &s.Link, &s.Countries, &s.ListenLabels,
-			&s.Evidence, &s.Description, &s.Status,
+			&s.Evidence, &s.Description,
 			&s.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -65,10 +61,10 @@ func (r *SuggestionRepo) Create(ctx context.Context, name string, link *string, 
 	err := r.db.QueryRow(ctx, `
 		INSERT INTO suggestions (name, link, countries, listen_labels, evidence, description)
 		VALUES ($1, $2, $3, $4, $5, $6)
-		RETURNING id, name, link, countries, listen_labels, evidence, description, status, created_at
+		RETURNING id, name, link, countries, listen_labels, evidence, description, created_at
 	`, name, link, countries, listenLabels, evidence, description).Scan(
 		&id, &s.Name, &s.Link, &s.Countries, &s.ListenLabels,
-		&s.Evidence, &s.Description, &s.Status,
+		&s.Evidence, &s.Description,
 		&s.CreatedAt,
 	)
 	if err != nil {
@@ -84,8 +80,8 @@ func (r *SuggestionRepo) Create(ctx context.Context, name string, link *string, 
 	return &s, nil
 }
 
-func (r *SuggestionRepo) UpdateStatus(ctx context.Context, id, status string) error {
-	tag, err := r.db.Exec(ctx, `UPDATE suggestions SET status = $1 WHERE id = $2`, status, id)
+func (r *SuggestionRepo) Delete(ctx context.Context, id string) error {
+	tag, err := r.db.Exec(ctx, `DELETE FROM suggestions WHERE id = $1`, id)
 	if err != nil {
 		return err
 	}
