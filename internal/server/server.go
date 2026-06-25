@@ -71,10 +71,7 @@ func Run() error {
 	router := gin.New()
 	router.Use(gin.Recovery())
 
-	// No reverse proxy sits in front of this service directly, so don't trust
-	// X-Forwarded-For for ClientIP() (used for rate limiting) — trusting it by
-	// default would let clients spoof their IP and bypass rate limits.
-	if err := router.SetTrustedProxies(nil); err != nil {
+	if err := router.SetTrustedProxies([]string{"172.19.0.0/16"}); err != nil {
 		return err
 	}
 
