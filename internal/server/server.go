@@ -126,6 +126,7 @@ func Run() error {
 		protected.DELETE("/organisation/:id", h.DeleteOrganisation)
 
 		protected.GET("/suggestion", h.GetSuggestions)
+		protected.DELETE("/suggestion/:id", h.DeleteSuggestion)
 
 		protected.GET("/feedback", h.GetFeedbacks)
 		protected.DELETE("/feedback/:id", h.DeleteFeedback)
@@ -145,7 +146,6 @@ func Run() error {
 		admin.PUT("/source/:id", h.UpdateSource)
 		admin.DELETE("/source/:id", h.DeleteSource)
 
-		admin.DELETE("/suggestion/:id", h.DeleteSuggestion)
 	}
 
 	errCh := make(chan error, 1)
