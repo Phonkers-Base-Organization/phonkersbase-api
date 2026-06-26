@@ -5,7 +5,14 @@ CREATE TABLE organisations (
     origin         TEXT        NOT NULL,
     info           TEXT,
     type           TEXT        NOT NULL,
-    recommendation TEXT        NOT NULL,
+    recommendation TEXT        NOT NULL
+        CONSTRAINT organisations_recommendation_check CHECK (recommendation IN (
+            'Не використовуй',
+            'Не слухай це',
+            'Будь обережний',
+            'Можеш використовувати',
+            'Можеш слухати'
+        )),
     created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
