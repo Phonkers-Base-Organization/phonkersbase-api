@@ -65,6 +65,7 @@ func Run() error {
 		repository.NewUserRepo(dbpool),
 		repository.NewSuggestionRepo(dbpool),
 		repository.NewFeedbackRepo(dbpool),
+		repository.NewOrganisationRepo(dbpool),
 		cfg.JWTSecret,
 	)
 
@@ -94,6 +95,7 @@ func Run() error {
 	v1.GET("/artist/all", h.GetArtists)
 	v1.GET("/label/all", h.GetLabels)
 	v1.GET("/source/all", h.GetSources)
+	v1.GET("/organisation/all", h.GetOrganisations)
 	v1.POST("/auth/login", h.Login)
 	v1.POST("/suggestion", h.CreateSuggestion)
 	v1.POST("/feedback", h.CreateFeedback)
@@ -114,6 +116,10 @@ func Run() error {
 		protected.POST("/label", h.CreateLabel)
 		protected.PUT("/label/:id", h.UpdateLabel)
 		protected.DELETE("/label/:id", h.DeleteLabel)
+
+		protected.POST("/organisation", h.CreateOrganisation)
+		protected.PUT("/organisation/:id", h.UpdateOrganisation)
+		protected.DELETE("/organisation/:id", h.DeleteOrganisation)
 
 		protected.GET("/suggestion", h.GetSuggestions)
 

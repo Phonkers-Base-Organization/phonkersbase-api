@@ -145,3 +145,47 @@ type UpsertLabelInput struct {
 	Name     string `json:"name" binding:"required"`
 	Priority int    `json:"priority"`
 }
+
+type OrgRecommendation string
+
+const (
+	OrgRecNoUse     OrgRecommendation = "Не використовуй"
+	OrgRecNoListen  OrgRecommendation = "Не слухай це"
+	OrgRecCareful   OrgRecommendation = "Будь обережний"
+	OrgRecCanUse    OrgRecommendation = "Можеш використовувати"
+	OrgRecCanListen OrgRecommendation = "Можеш слухати"
+)
+
+func (r OrgRecommendation) Valid() bool {
+	switch r {
+	case OrgRecNoUse, OrgRecNoListen, OrgRecCareful, OrgRecCanUse, OrgRecCanListen:
+		return true
+	}
+	return false
+}
+
+type Organisation struct {
+	ID             string            `json:"id"`
+	Name           string            `json:"name"`
+	Link           *string           `json:"link"`
+	Origin         string            `json:"origin"`
+	Info           *string           `json:"info"`
+	Type           string            `json:"type"`
+	Recommendation OrgRecommendation `json:"recommendation"`
+	CreatedAt      time.Time         `json:"createdAt"`
+	UpdatedAt      time.Time         `json:"updatedAt"`
+}
+
+type UpsertOrganisationInput struct {
+	Name           string            `json:"name" binding:"required"`
+	Link           *string           `json:"link"`
+	Origin         string            `json:"origin" binding:"required"`
+	Info           *string           `json:"info"`
+	Type           string            `json:"type" binding:"required"`
+	Recommendation OrgRecommendation `json:"recommendation" binding:"required"`
+}
+
+type ListOrganisationsParams struct {
+	Type   string
+	Search string
+}

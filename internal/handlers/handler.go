@@ -5,13 +5,14 @@ import (
 )
 
 type Handler struct {
-	artists     *repository.ArtistRepo
-	labels      *repository.LabelRepo
-	sources     *repository.EvidenceSourceRepo
-	users       *repository.UserRepo
-	suggestions *repository.SuggestionRepo
-	feedbacks   *repository.FeedbackRepo
-	jwtSecret   string
+	artists       *repository.ArtistRepo
+	labels        *repository.LabelRepo
+	sources       *repository.EvidenceSourceRepo
+	users         *repository.UserRepo
+	suggestions   *repository.SuggestionRepo
+	feedbacks     *repository.FeedbackRepo
+	organisations *repository.OrganisationRepo
+	jwtSecret     string
 }
 
 func NewHandler(
@@ -21,15 +22,17 @@ func NewHandler(
 	users *repository.UserRepo,
 	suggestions *repository.SuggestionRepo,
 	feedbacks *repository.FeedbackRepo,
+	organisations *repository.OrganisationRepo,
 	jwtSecret string,
 ) *Handler {
 	return &Handler{
-		artists:     artists,
-		labels:      labels,
-		sources:     sources,
-		users:       users,
-		suggestions: suggestions,
-		feedbacks:   feedbacks,
-		jwtSecret:   jwtSecret,
+		artists:       artists,
+		labels:        labels,
+		sources:       sources,
+		users:         users,
+		suggestions:   suggestions,
+		feedbacks:     feedbacks,
+		organisations: organisations,
+		jwtSecret:     jwtSecret,
 	}
 }
