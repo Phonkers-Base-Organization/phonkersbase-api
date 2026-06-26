@@ -6,7 +6,6 @@ import (
 	"github.com/PhonkersBase/base-api2/internal/domain"
 	"github.com/PhonkersBase/base-api2/internal/repository"
 	"github.com/gin-gonic/gin"
-	"github.com/rs/zerolog/log"
 )
 
 func (h *Handler) GetOrganisations(c *gin.Context) {
@@ -16,8 +15,7 @@ func (h *Handler) GetOrganisations(c *gin.Context) {
 	}
 	orgs, err := h.organisations.GetAll(c.Request.Context(), params)
 	if err != nil {
-		log.Error().Err(err).Msg("failed to get organisations")
-		c.Status(http.StatusInternalServerError)
+		internalErr(c, err, "failed to get organisations")
 		return
 	}
 	c.JSON(http.StatusOK, orgs)
@@ -36,8 +34,7 @@ func (h *Handler) CreateOrganisation(c *gin.Context) {
 
 	org, err := h.organisations.Create(c.Request.Context(), input)
 	if err != nil {
-		log.Error().Err(err).Msg("failed to create organisation")
-		c.Status(http.StatusInternalServerError)
+		internalErr(c, err, "failed to create organisation")
 		return
 	}
 	c.JSON(http.StatusCreated, org)
@@ -61,8 +58,7 @@ func (h *Handler) UpdateOrganisation(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"message": "organisation not found"})
 			return
 		}
-		log.Error().Err(err).Msg("failed to update organisation")
-		c.Status(http.StatusInternalServerError)
+		internalErr(c, err, "failed to update organisation")
 		return
 	}
 	c.JSON(http.StatusOK, org)
@@ -75,8 +71,7 @@ func (h *Handler) DeleteOrganisation(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"message": "organisation not found"})
 			return
 		}
-		log.Error().Err(err).Msg("failed to delete organisation")
-		c.Status(http.StatusInternalServerError)
+		internalErr(c, err, "failed to delete organisation")
 		return
 	}
 	c.Status(http.StatusNoContent)

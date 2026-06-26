@@ -6,14 +6,12 @@ import (
 	"github.com/PhonkersBase/base-api2/internal/domain"
 	"github.com/PhonkersBase/base-api2/internal/repository"
 	"github.com/gin-gonic/gin"
-	"github.com/rs/zerolog/log"
 )
 
 func (h *Handler) GetSources(c *gin.Context) {
 	sources, err := h.sources.GetAll(c.Request.Context())
 	if err != nil {
-		log.Error().Err(err).Msg("failed to get sources")
-		c.Status(http.StatusInternalServerError)
+		internalErr(c, err, "failed to get sources")
 		return
 	}
 	c.JSON(http.StatusOK, sources)
@@ -28,8 +26,7 @@ func (h *Handler) CreateSource(c *gin.Context) {
 
 	source, err := h.sources.Create(c.Request.Context(), input)
 	if err != nil {
-		log.Error().Err(err).Msg("failed to create source")
-		c.Status(http.StatusInternalServerError)
+		internalErr(c, err, "failed to create source")
 		return
 	}
 	c.JSON(http.StatusCreated, source)
@@ -49,8 +46,7 @@ func (h *Handler) UpdateSource(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"message": "source not found"})
 			return
 		}
-		log.Error().Err(err).Msg("failed to update source")
-		c.Status(http.StatusInternalServerError)
+		internalErr(c, err, "failed to update source")
 		return
 	}
 	c.JSON(http.StatusOK, source)
@@ -63,8 +59,7 @@ func (h *Handler) DeleteSource(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"message": "source not found"})
 			return
 		}
-		log.Error().Err(err).Msg("failed to delete source")
-		c.Status(http.StatusInternalServerError)
+		internalErr(c, err, "failed to delete source")
 		return
 	}
 	c.Status(http.StatusNoContent)
