@@ -28,7 +28,6 @@ type LabelRef struct {
 type EvidenceSource struct {
 	ID        string    `json:"id"`
 	Name      string    `json:"name"`
-	NameUk    string    `json:"nameUk"`
 	NameEn    string    `json:"nameEn"`
 	CreatedAt time.Time `json:"createdAt"`
 }
@@ -39,7 +38,6 @@ type EvidenceSource struct {
 type SourceRef struct {
 	ID     string `json:"id"`
 	Name   string `json:"name"`
-	NameUk string `json:"nameUk"`
 	NameEn string `json:"nameEn"`
 }
 
@@ -137,7 +135,6 @@ type UpsertArtistInput struct {
 
 type UpsertSourceInput struct {
 	Name   string `json:"name" binding:"required"`
-	NameUk string `json:"nameUk"`
 	NameEn string `json:"nameEn"`
 }
 
@@ -169,18 +166,27 @@ type Organisation struct {
 	Name           string            `json:"name"`
 	Link           *string           `json:"link"`
 	Origin         string            `json:"origin"`
-	Info           *string           `json:"info"`
+	DescriptionUk  *string           `json:"description"`
+	DescriptionEn  *string           `json:"descriptionEn"`
+	Notes          *string           `json:"notes"`
 	Type           string            `json:"type"`
 	Recommendation OrgRecommendation `json:"recommendation"`
 	CreatedAt      time.Time         `json:"createdAt"`
 	UpdatedAt      time.Time         `json:"updatedAt"`
 }
 
+type PaginatedOrganisations struct {
+	Items []Organisation `json:"items"`
+	Info  Pagination     `json:"info"`
+}
+
 type UpsertOrganisationInput struct {
 	Name           string            `json:"name" binding:"required"`
 	Link           *string           `json:"link"`
 	Origin         string            `json:"origin" binding:"required"`
-	Info           *string           `json:"info"`
+	DescriptionUk  *string           `json:"description"`
+	DescriptionEn  *string           `json:"descriptionEn"`
+	Notes          *string           `json:"notes"`
 	Type           string            `json:"type" binding:"required"`
 	Recommendation OrgRecommendation `json:"recommendation" binding:"required"`
 }
@@ -188,4 +194,6 @@ type UpsertOrganisationInput struct {
 type ListOrganisationsParams struct {
 	Type   string
 	Search string
+	Limit  int
+	Offset int
 }

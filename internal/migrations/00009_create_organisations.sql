@@ -3,7 +3,9 @@ CREATE TABLE organisations (
     name           TEXT        NOT NULL,
     link           TEXT,
     origin         TEXT        NOT NULL,
-    info           TEXT,
+    description_uk TEXT,
+    description_en TEXT,
+    notes          TEXT,
     type           TEXT        NOT NULL,
     recommendation TEXT        NOT NULL
         CONSTRAINT organisations_recommendation_check CHECK (recommendation IN (
@@ -24,6 +26,9 @@ CREATE TRIGGER organisations_updated_at
     BEFORE UPDATE ON organisations
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+ALTER TABLE evidence_sources DROP COLUMN name_uk;
+
 ---- create above / drop below ----
 
+ALTER TABLE evidence_sources ADD COLUMN name_uk TEXT NOT NULL DEFAULT '';
 DROP TABLE IF EXISTS organisations;

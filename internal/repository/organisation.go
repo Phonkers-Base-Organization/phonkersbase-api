@@ -19,44 +19,81 @@ func NewOrganisationRepo(db *pgxpool.Pool) *OrganisationRepo {
 	return &OrganisationRepo{db: db}
 }
 
-func (r *OrganisationRepo) GetAll(ctx context.Context, params domain.ListOrganisationsParams) ([]domain.Organisation, error) {
-	query := `
-		SELECT id, name, link, origin, info, type, recommendation, created_at, updated_at
+func (r *OrganisationRepo) GetAll(ctx context.Context, params domain.ListOrganisationsParams) (*domain.PaginatedOrganisations, error) {
+	limit := params.Limit
+	if limit <= 0 {
+		limit = 50
+	}
+	if limit > 500 {
+		limit = 500
+	}
+
+	var total int
+	err := r.db.QueryRow(ctx, `
+		SELECT COUNT(*) FROM organisations
+		WHERE ($1 = '' OR type = $1)
+		  AND ($2 = '' OR name ILIKE '%' || $2 || '%')
+	`, params.Type, params.Search).Scan(&total)
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := r.db.Query(ctx, `
+		SELECT id, name, link, origin, description_uk, description_en, notes, type, recommendation, created_at, updated_at
 		FROM organisations
 		WHERE ($1 = '' OR type = $1)
 		  AND ($2 = '' OR name ILIKE '%' || $2 || '%')
 		ORDER BY name ASC
-	`
-	rows, err := r.db.Query(ctx, query, params.Type, params.Search)
+		LIMIT $3 OFFSET $4
+	`, params.Type, params.Search, limit, params.Offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	orgs := []domain.Organisation{}
+	items := []domain.Organisation{}
 	for rows.Next() {
 		var (
 			id int
 			o  domain.Organisation
 		)
-		if err := rows.Scan(&id, &o.Name, &o.Link, &o.Origin, &o.Info, &o.Type, &o.Recommendation, &o.CreatedAt, &o.UpdatedAt); err != nil {
+		if err := rows.Scan(&id, &o.Name, &o.Link, &o.Origin, &o.DescriptionUk, &o.DescriptionEn, &o.Notes, &o.Type, &o.Recommendation, &o.CreatedAt, &o.UpdatedAt); err != nil {
 			return nil, err
 		}
 		o.ID = strconv.Itoa(id)
-		orgs = append(orgs, o)
+		items = append(items, o)
 	}
-	return orgs, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	totalPages := total / limit
+	if total%limit != 0 {
+		totalPages++
+	}
+	currentPage := params.Offset/limit + 1
+
+	return &domain.PaginatedOrganisations{
+		Items: items,
+		Info: domain.Pagination{
+			Limit:       limit,
+			Offset:      params.Offset,
+			Total:       total,
+			TotalPages:  totalPages,
+			CurrentPage: currentPage,
+		},
+	}, nil
 }
 
 func (r *OrganisationRepo) Create(ctx context.Context, input domain.UpsertOrganisationInput) (*domain.Organisation, error) {
 	var o domain.Organisation
 	var id int
 	err := r.db.QueryRow(ctx, `
-		INSERT INTO organisations (name, link, origin, info, type, recommendation)
-		VALUES ($1, $2, $3, $4, $5, $6)
-		RETURNING id, name, link, origin, info, type, recommendation, created_at, updated_at
-	`, input.Name, input.Link, input.Origin, input.Info, input.Type, input.Recommendation).Scan(
-		&id, &o.Name, &o.Link, &o.Origin, &o.Info, &o.Type, &o.Recommendation, &o.CreatedAt, &o.UpdatedAt,
+		INSERT INTO organisations (name, link, origin, description_uk, description_en, notes, type, recommendation)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		RETURNING id, name, link, origin, description_uk, description_en, notes, type, recommendation, created_at, updated_at
+	`, input.Name, input.Link, input.Origin, input.DescriptionUk, input.DescriptionEn, input.Notes, input.Type, input.Recommendation).Scan(
+		&id, &o.Name, &o.Link, &o.Origin, &o.DescriptionUk, &o.DescriptionEn, &o.Notes, &o.Type, &o.Recommendation, &o.CreatedAt, &o.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -69,11 +106,12 @@ func (r *OrganisationRepo) Update(ctx context.Context, id string, input domain.U
 	var o domain.Organisation
 	var oid int
 	err := r.db.QueryRow(ctx, `
-		UPDATE organisations SET name = $1, link = $2, origin = $3, info = $4, type = $5, recommendation = $6
-		WHERE id = $7
-		RETURNING id, name, link, origin, info, type, recommendation, created_at, updated_at
-	`, input.Name, input.Link, input.Origin, input.Info, input.Type, input.Recommendation, id).Scan(
-		&oid, &o.Name, &o.Link, &o.Origin, &o.Info, &o.Type, &o.Recommendation, &o.CreatedAt, &o.UpdatedAt,
+		UPDATE organisations
+		SET name = $1, link = $2, origin = $3, description_uk = $4, description_en = $5, notes = $6, type = $7, recommendation = $8
+		WHERE id = $9
+		RETURNING id, name, link, origin, description_uk, description_en, notes, type, recommendation, created_at, updated_at
+	`, input.Name, input.Link, input.Origin, input.DescriptionUk, input.DescriptionEn, input.Notes, input.Type, input.Recommendation, id).Scan(
+		&oid, &o.Name, &o.Link, &o.Origin, &o.DescriptionUk, &o.DescriptionEn, &o.Notes, &o.Type, &o.Recommendation, &o.CreatedAt, &o.UpdatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
