@@ -17,7 +17,6 @@ import (
 )
 
 var ErrNotFound = errors.New("not found")
-var ErrContextCanceled = errors.New("context canceled")
 
 type ArtistRepo struct {
 	db *pgxpool.Pool
@@ -52,7 +51,7 @@ func (r *ArtistRepo) GetByID(ctx context.Context, id int) (*domain.Artist, error
 			return nil, ErrNotFound
 		}
 		if errors.Is(err, context.Canceled) {
-			return nil, ErrContextCanceled
+			return nil, context.Canceled
 		}
 		return nil, err
 	}
