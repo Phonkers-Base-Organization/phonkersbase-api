@@ -50,6 +50,9 @@ func (r *ArtistRepo) GetByID(ctx context.Context, id int) (*domain.Artist, error
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNotFound
 		}
+		if errors.Is(err, context.Canceled) {
+			return nil, context.Canceled
+		}
 		return nil, err
 	}
 
@@ -499,7 +502,7 @@ func (r *ArtistRepo) replaceArtistLabels(ctx context.Context, artistID int, labe
 
 func (r *ArtistRepo) fetchCountries(ctx context.Context, artistIDs []int) (map[int][]domain.ArtistCountry, error) {
 	rows, err := r.db.Query(ctx, `
-		SELECT ac.artist_id, ac.code, es.id, es.name, es.name_uk, es.name_en
+		SELECT ac.artist_id, ac.code, es.id, es.name, es.name_en
 		FROM artist_countries ac
 		LEFT JOIN evidence_sources es ON es.id = ac.source_id
 		WHERE ac.artist_id = ANY($1)
@@ -517,10 +520,9 @@ func (r *ArtistRepo) fetchCountries(ctx context.Context, artistIDs []int) (map[i
 			code         string
 			sourceID     *int
 			sourceName   *string
-			sourceNameUk *string
 			sourceNameEn *string
 		)
-		if err := rows.Scan(&artistID, &code, &sourceID, &sourceName, &sourceNameUk, &sourceNameEn); err != nil {
+		if err := rows.Scan(&artistID, &code, &sourceID, &sourceName, &sourceNameEn); err != nil {
 			return nil, err
 		}
 		var source *domain.SourceRef
@@ -528,7 +530,6 @@ func (r *ArtistRepo) fetchCountries(ctx context.Context, artistIDs []int) (map[i
 			source = &domain.SourceRef{
 				ID:     strconv.Itoa(*sourceID),
 				Name:   *sourceName,
-				NameUk: derefStr(sourceNameUk),
 				NameEn: derefStr(sourceNameEn),
 			}
 		}

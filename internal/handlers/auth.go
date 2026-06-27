@@ -39,6 +39,7 @@ func (h *Handler) Login(c *gin.Context) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	signed, err := token.SignedString([]byte(h.jwtSecret))
 	if err != nil {
+		// JWT signing is a local operation — context cancellation is irrelevant here.
 		log.Error().Err(err).Msg("failed to sign token")
 		c.Status(http.StatusInternalServerError)
 		return
@@ -64,8 +65,7 @@ func (h *Handler) GetMe(c *gin.Context) {
 func (h *Handler) GetUsers(c *gin.Context) {
 	users, err := h.users.GetAll(c.Request.Context())
 	if err != nil {
-		log.Error().Err(err).Msg("failed to get users")
-		c.Status(http.StatusInternalServerError)
+		internalErr(c, err, "failed to get users")
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"users": users})
@@ -119,8 +119,7 @@ func (h *Handler) DeleteUser(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"message": "user not found"})
 			return
 		}
-		log.Error().Err(err).Msg("failed to get user")
-		c.Status(http.StatusInternalServerError)
+		internalErr(c, err, "failed to get user")
 		return
 	}
 
@@ -130,8 +129,7 @@ func (h *Handler) DeleteUser(c *gin.Context) {
 	}
 
 	if err := h.users.Delete(c.Request.Context(), targetID); err != nil {
-		log.Error().Err(err).Msg("failed to delete user")
-		c.Status(http.StatusInternalServerError)
+		internalErr(c, err, "failed to delete user")
 		return
 	}
 	c.Status(http.StatusNoContent)
@@ -158,8 +156,7 @@ func (h *Handler) UpdateUserRole(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"message": "user not found"})
 			return
 		}
-		log.Error().Err(err).Msg("failed to update user role")
-		c.Status(http.StatusInternalServerError)
+		internalErr(c, err, "failed to update user role")
 		return
 	}
 	c.Status(http.StatusNoContent)

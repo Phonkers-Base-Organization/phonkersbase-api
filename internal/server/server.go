@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"os"
 	"os/signal"
@@ -30,7 +31,9 @@ func Run() error {
 
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
-	log.Logger = zerolog.New(os.Stdout).With().Timestamp().Logger().Hook(metrics.ErrorHook{})
+	log.Logger = zerolog.New(os.Stdout).With().Timestamp().Logger().
+		Hook(metrics.ErrorHook{}).
+		Hook(metrics.CallerHook{})
 
 	initCtx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
 	defer cancel()
@@ -65,6 +68,7 @@ func Run() error {
 		repository.NewUserRepo(dbpool),
 		repository.NewSuggestionRepo(dbpool),
 		repository.NewFeedbackRepo(dbpool),
+		repository.NewOrganisationRepo(dbpool),
 		cfg.JWTSecret,
 	)
 
@@ -82,6 +86,7 @@ func Run() error {
 		AllowCredentials: true,
 	}))
 
+	router.Use(requestTimeout(30 * time.Second))
 	router.Use(logger("/", "/health", "/metrics"))
 	router.GET("/health", func(c *gin.Context) {
 		c.Status(http.StatusNoContent)
@@ -94,6 +99,7 @@ func Run() error {
 	v1.GET("/artist/all", h.GetArtists)
 	v1.GET("/label/all", h.GetLabels)
 	v1.GET("/source/all", h.GetSources)
+	v1.GET("/organisation/all", h.GetOrganisations)
 	v1.POST("/auth/login", h.Login)
 	v1.POST("/suggestion", h.CreateSuggestion)
 	v1.POST("/feedback", h.CreateFeedback)
@@ -115,7 +121,12 @@ func Run() error {
 		protected.PUT("/label/:id", h.UpdateLabel)
 		protected.DELETE("/label/:id", h.DeleteLabel)
 
+		protected.POST("/organisation", h.CreateOrganisation)
+		protected.PUT("/organisation/:id", h.UpdateOrganisation)
+		protected.DELETE("/organisation/:id", h.DeleteOrganisation)
+
 		protected.GET("/suggestion", h.GetSuggestions)
+		protected.DELETE("/suggestion/:id", h.DeleteSuggestion)
 
 		protected.GET("/feedback", h.GetFeedbacks)
 		protected.DELETE("/feedback/:id", h.DeleteFeedback)
@@ -135,7 +146,6 @@ func Run() error {
 		admin.PUT("/source/:id", h.UpdateSource)
 		admin.DELETE("/source/:id", h.DeleteSource)
 
-		admin.DELETE("/suggestion/:id", h.DeleteSuggestion)
 	}
 
 	errCh := make(chan error, 1)
@@ -143,6 +153,9 @@ func Run() error {
 		Addr:              ":" + cfg.Port,
 		Handler:           router,
 		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      35 * time.Second, // above the 30s request context timeout
+		IdleTimeout:       120 * time.Second,
 	}
 
 	go func() {
@@ -199,6 +212,15 @@ func runMigrations(ctx context.Context, db *pgxpool.Pool) error {
 	return m.Migrate(ctx)
 }
 
+func requestTimeout(d time.Duration) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx, cancel := context.WithTimeout(c.Request.Context(), d)
+		defer cancel()
+		c.Request = c.Request.WithContext(ctx)
+		c.Next()
+	}
+}
+
 func logger(skipPaths ...string) gin.HandlerFunc {
 	skip := make(map[string]struct{}, len(skipPaths))
 	for _, p := range skipPaths {
@@ -228,7 +250,7 @@ func logger(skipPaths ...string) gin.HandlerFunc {
 		metrics.RecordHTTPRequest(c.Request.Context(), c.Request.Method, route, status, latency)
 
 		event := log.Info()
-		if status >= 500 {
+		if status >= 500 && !errors.Is(c.Request.Context().Err(), context.Canceled) {
 			event = log.Error()
 		}
 

@@ -5,14 +5,12 @@ import (
 
 	"github.com/PhonkersBase/base-api2/internal/repository"
 	"github.com/gin-gonic/gin"
-	"github.com/rs/zerolog/log"
 )
 
 func (h *Handler) GetFeedbacks(c *gin.Context) {
 	feedbacks, err := h.feedbacks.GetAll(c.Request.Context())
 	if err != nil {
-		log.Error().Err(err).Msg("failed to get feedbacks")
-		c.Status(http.StatusInternalServerError)
+		internalErr(c, err, "failed to get feedbacks")
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"feedbacks": feedbacks})
@@ -25,8 +23,7 @@ func (h *Handler) DeleteFeedback(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"message": "feedback not found"})
 			return
 		}
-		log.Error().Err(err).Msg("failed to delete feedback")
-		c.Status(http.StatusInternalServerError)
+		internalErr(c, err, "failed to delete feedback")
 		return
 	}
 	c.Status(http.StatusNoContent)
@@ -45,8 +42,7 @@ func (h *Handler) CreateFeedback(c *gin.Context) {
 
 	feedback, err := h.feedbacks.Create(c.Request.Context(), body.Type, body.Text, body.Email)
 	if err != nil {
-		log.Error().Err(err).Msg("failed to create feedback")
-		c.Status(http.StatusInternalServerError)
+		internalErr(c, err, "failed to create feedback")
 		return
 	}
 	c.JSON(http.StatusCreated, feedback)

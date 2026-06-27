@@ -8,7 +8,6 @@ import (
 	"github.com/PhonkersBase/base-api2/internal/domain"
 	"github.com/PhonkersBase/base-api2/internal/repository"
 	"github.com/gin-gonic/gin"
-	"github.com/rs/zerolog/log"
 )
 
 func (h *Handler) GetArtists(c *gin.Context) {
@@ -58,8 +57,7 @@ func (h *Handler) GetArtists(c *gin.Context) {
 
 	result, err := h.artists.GetAll(c.Request.Context(), p)
 	if err != nil {
-		log.Error().Err(err).Msg("failed to get artists")
-		c.Status(http.StatusInternalServerError)
+		internalErr(c, err, "failed to get artists")
 		return
 	}
 	c.JSON(http.StatusOK, result)
@@ -90,8 +88,7 @@ func (h *Handler) GetAdminArtists(c *gin.Context) {
 
 	artists, total, err := h.artists.GetAdminAll(c.Request.Context(), limit, offset, search)
 	if err != nil {
-		log.Error().Err(err).Msg("failed to get admin artists")
-		c.Status(http.StatusInternalServerError)
+		internalErr(c, err, "failed to get admin artists")
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"artists": artists, "total": total})
@@ -106,8 +103,7 @@ func (h *Handler) CreateArtist(c *gin.Context) {
 
 	artist, err := h.artists.Create(c.Request.Context(), input)
 	if err != nil {
-		log.Error().Err(err).Msg("failed to create artist")
-		c.Status(http.StatusInternalServerError)
+		internalErr(c, err, "failed to create artist")
 		return
 	}
 	c.JSON(http.StatusCreated, artist)
@@ -127,8 +123,7 @@ func (h *Handler) UpdateArtist(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"message": "artist not found"})
 			return
 		}
-		log.Error().Err(err).Msg("failed to update artist")
-		c.Status(http.StatusInternalServerError)
+		internalErr(c, err, "failed to update artist")
 		return
 	}
 	c.JSON(http.StatusOK, artist)
@@ -141,8 +136,7 @@ func (h *Handler) DeleteArtist(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"message": "artist not found"})
 			return
 		}
-		log.Error().Err(err).Msg("failed to delete artist")
-		c.Status(http.StatusInternalServerError)
+		internalErr(c, err, "failed to delete artist")
 		return
 	}
 	c.Status(http.StatusNoContent)
@@ -151,8 +145,7 @@ func (h *Handler) DeleteArtist(c *gin.Context) {
 func (h *Handler) GetArtistStats(c *gin.Context) {
 	stats, err := h.artists.GetStats(c.Request.Context())
 	if err != nil {
-		log.Error().Err(err).Msg("failed to get artist stats")
-		c.Status(http.StatusInternalServerError)
+		internalErr(c, err, "failed to get artist stats")
 		return
 	}
 	c.JSON(http.StatusOK, stats)

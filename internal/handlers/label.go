@@ -6,14 +6,12 @@ import (
 	"github.com/PhonkersBase/base-api2/internal/domain"
 	"github.com/PhonkersBase/base-api2/internal/repository"
 	"github.com/gin-gonic/gin"
-	"github.com/rs/zerolog/log"
 )
 
 func (h *Handler) GetLabels(c *gin.Context) {
 	labels, err := h.labels.GetAll(c.Request.Context())
 	if err != nil {
-		log.Error().Err(err).Msg("failed to get labels")
-		c.Status(http.StatusInternalServerError)
+		internalErr(c, err, "failed to get labels")
 		return
 	}
 	c.JSON(http.StatusOK, labels)
@@ -28,8 +26,7 @@ func (h *Handler) CreateLabel(c *gin.Context) {
 
 	label, err := h.labels.Create(c.Request.Context(), input)
 	if err != nil {
-		log.Error().Err(err).Msg("failed to create label")
-		c.Status(http.StatusInternalServerError)
+		internalErr(c, err, "failed to create label")
 		return
 	}
 	c.JSON(http.StatusCreated, label)
@@ -49,8 +46,7 @@ func (h *Handler) UpdateLabel(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"message": "label not found"})
 			return
 		}
-		log.Error().Err(err).Msg("failed to update label")
-		c.Status(http.StatusInternalServerError)
+		internalErr(c, err, "failed to update label")
 		return
 	}
 	c.JSON(http.StatusOK, label)
@@ -63,8 +59,7 @@ func (h *Handler) DeleteLabel(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"message": "label not found"})
 			return
 		}
-		log.Error().Err(err).Msg("failed to delete label")
-		c.Status(http.StatusInternalServerError)
+		internalErr(c, err, "failed to delete label")
 		return
 	}
 	c.Status(http.StatusNoContent)

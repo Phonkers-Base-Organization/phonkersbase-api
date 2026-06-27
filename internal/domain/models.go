@@ -28,7 +28,6 @@ type LabelRef struct {
 type EvidenceSource struct {
 	ID        string    `json:"id"`
 	Name      string    `json:"name"`
-	NameUk    string    `json:"nameUk"`
 	NameEn    string    `json:"nameEn"`
 	CreatedAt time.Time `json:"createdAt"`
 }
@@ -39,7 +38,6 @@ type EvidenceSource struct {
 type SourceRef struct {
 	ID     string `json:"id"`
 	Name   string `json:"name"`
-	NameUk string `json:"nameUk"`
 	NameEn string `json:"nameEn"`
 }
 
@@ -137,11 +135,65 @@ type UpsertArtistInput struct {
 
 type UpsertSourceInput struct {
 	Name   string `json:"name" binding:"required"`
-	NameUk string `json:"nameUk"`
 	NameEn string `json:"nameEn"`
 }
 
 type UpsertLabelInput struct {
 	Name     string `json:"name" binding:"required"`
 	Priority int    `json:"priority"`
+}
+
+type OrgRecommendation string
+
+const (
+	OrgRecNoUse     OrgRecommendation = "Не використовуй"
+	OrgRecNoListen  OrgRecommendation = "Не слухай це"
+	OrgRecCareful   OrgRecommendation = "Будь обережний"
+	OrgRecCanUse    OrgRecommendation = "Можеш використовувати"
+	OrgRecCanListen OrgRecommendation = "Можеш слухати"
+)
+
+func (r OrgRecommendation) Valid() bool {
+	switch r {
+	case OrgRecNoUse, OrgRecNoListen, OrgRecCareful, OrgRecCanUse, OrgRecCanListen:
+		return true
+	}
+	return false
+}
+
+type Organisation struct {
+	ID             string            `json:"id"`
+	Name           string            `json:"name"`
+	Link           *string           `json:"link"`
+	Origin         string            `json:"origin"`
+	DescriptionUk  *string           `json:"description"`
+	DescriptionEn  *string           `json:"descriptionEn"`
+	Notes          *string           `json:"notes"`
+	Type           string            `json:"type"`
+	Recommendation OrgRecommendation `json:"recommendation"`
+	CreatedAt      time.Time         `json:"createdAt"`
+	UpdatedAt      time.Time         `json:"updatedAt"`
+}
+
+type PaginatedOrganisations struct {
+	Items []Organisation `json:"items"`
+	Info  Pagination     `json:"info"`
+}
+
+type UpsertOrganisationInput struct {
+	Name           string            `json:"name" binding:"required"`
+	Link           *string           `json:"link"`
+	Origin         string            `json:"origin" binding:"required"`
+	DescriptionUk  *string           `json:"description"`
+	DescriptionEn  *string           `json:"descriptionEn"`
+	Notes          *string           `json:"notes"`
+	Type           string            `json:"type" binding:"required"`
+	Recommendation OrgRecommendation `json:"recommendation" binding:"required"`
+}
+
+type ListOrganisationsParams struct {
+	Type   string
+	Search string
+	Limit  int
+	Offset int
 }
