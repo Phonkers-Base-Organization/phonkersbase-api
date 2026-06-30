@@ -21,6 +21,7 @@ func NewUserRepo(db *pgxpool.Pool) *UserRepo {
 
 func (r *UserRepo) GetAll(ctx context.Context) ([]domain.User, error) {
 	rows, err := r.db.Query(ctx, `
+		-- name: user.get_all
 		SELECT id, username, role
 		FROM users
 		ORDER BY created_at ASC
@@ -52,6 +53,7 @@ func (r *UserRepo) GetByUsername(ctx context.Context, username string) (*domain.
 		passwordHash string
 	)
 	err := r.db.QueryRow(ctx, `
+		-- name: user.get_by_username
 		SELECT id, username, role, password_hash
 		FROM users
 		WHERE username = $1
@@ -72,6 +74,7 @@ func (r *UserRepo) GetByID(ctx context.Context, id string) (*domain.User, error)
 		u   domain.User
 	)
 	err := r.db.QueryRow(ctx, `
+		-- name: user.get_by_id
 		SELECT id, username, role
 		FROM users
 		WHERE id = $1
@@ -92,6 +95,7 @@ func (r *UserRepo) Create(ctx context.Context, username, passwordHash, role stri
 		u  domain.User
 	)
 	err := r.db.QueryRow(ctx, `
+		-- name: user.create
 		INSERT INTO users (username, password_hash, role)
 		VALUES ($1, $2, $3)
 		RETURNING id, username, role
@@ -104,7 +108,10 @@ func (r *UserRepo) Create(ctx context.Context, username, passwordHash, role stri
 }
 
 func (r *UserRepo) Delete(ctx context.Context, id string) error {
-	tag, err := r.db.Exec(ctx, `DELETE FROM users WHERE id = $1`, id)
+	tag, err := r.db.Exec(ctx, `
+		-- name: user.delete
+		DELETE FROM users WHERE id = $1
+	`, id)
 	if err != nil {
 		return err
 	}
@@ -115,7 +122,10 @@ func (r *UserRepo) Delete(ctx context.Context, id string) error {
 }
 
 func (r *UserRepo) UpdateRole(ctx context.Context, id, role string) error {
-	tag, err := r.db.Exec(ctx, `UPDATE users SET role = $1 WHERE id = $2`, role, id)
+	tag, err := r.db.Exec(ctx, `
+		-- name: user.update_role
+		UPDATE users SET role = $1 WHERE id = $2
+	`, role, id)
 	if err != nil {
 		return err
 	}

@@ -100,6 +100,9 @@ func Run() error {
 	v1.GET("/label/all", h.GetLabels)
 	v1.GET("/source/all", h.GetSources)
 	v1.GET("/organisation/all", h.GetOrganisations)
+	v1.GET("/organisation/labels", h.GetLabelOrganisations)
+	v1.GET("/organisation/distributors", h.GetDistributorOrganisations)
+	v1.GET("/organisation/cults", h.GetCultOrganisations)
 	v1.POST("/auth/login", h.Login)
 	v1.POST("/suggestion", h.CreateSuggestion)
 	v1.POST("/feedback", h.CreateFeedback)
@@ -121,9 +124,6 @@ func Run() error {
 		protected.PUT("/label/:id", h.UpdateLabel)
 		protected.DELETE("/label/:id", h.DeleteLabel)
 
-		protected.POST("/organisation", h.CreateOrganisation)
-		protected.PUT("/organisation/:id", h.UpdateOrganisation)
-		protected.DELETE("/organisation/:id", h.DeleteOrganisation)
 
 		protected.GET("/suggestion", h.GetSuggestions)
 		protected.DELETE("/suggestion/:id", h.DeleteSuggestion)
@@ -145,6 +145,10 @@ func Run() error {
 		admin.POST("/source", h.CreateSource)
 		admin.PUT("/source/:id", h.UpdateSource)
 		admin.DELETE("/source/:id", h.DeleteSource)
+
+		admin.POST("/organisation", h.CreateOrganisation)
+		admin.PUT("/organisation/:id", h.UpdateOrganisation)
+		admin.DELETE("/organisation/:id", h.DeleteOrganisation)
 
 	}
 

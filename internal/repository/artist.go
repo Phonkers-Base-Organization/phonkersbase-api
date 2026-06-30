@@ -36,6 +36,7 @@ func (r *ArtistRepo) GetByID(ctx context.Context, id int) (*domain.Artist, error
 		createdAt, updatedAt      time.Time
 	)
 	err := r.db.QueryRow(ctx, `
+		-- name: artist.get_by_id
 		SELECT id, name, link, spotify_id, avatar_url,
 		       description_ua, description_en,
 		       notes, created_at, updated_at
@@ -135,6 +136,7 @@ func (r *ArtistRepo) GetAll(ctx context.Context, p domain.ListArtistsParams) (*d
 	}
 
 	q := fmt.Sprintf(`
+		-- name: artist.get_all
 		SELECT
 			a.id, a.name, a.link, a.spotify_id, a.avatar_url,
 			a.description_ua, a.description_en,
@@ -255,6 +257,7 @@ func (r *ArtistRepo) GetAdminAll(ctx context.Context, limit, offset int, search 
 	}
 
 	q := fmt.Sprintf(`
+		-- name: artist.get_admin_all
 		SELECT
 			a.id, a.name, a.link, a.spotify_id, a.avatar_url,
 			a.description_ua, a.description_en,
@@ -339,6 +342,7 @@ func (r *ArtistRepo) Create(ctx context.Context, input domain.UpsertArtistInput)
 		createdAt, updatedAt time.Time
 	)
 	err := r.db.QueryRow(ctx, `
+		-- name: artist.create
 		INSERT INTO artists (name, link, spotify_id, avatar_url, description_ua, description_en, notes)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		RETURNING id, created_at, updated_at
@@ -380,6 +384,7 @@ func (r *ArtistRepo) Update(ctx context.Context, id string, input domain.UpsertA
 		createdAt, updatedAt time.Time
 	)
 	err := r.db.QueryRow(ctx, `
+		-- name: artist.update
 		UPDATE artists SET
 			name = $1, link = $2, spotify_id = $3, avatar_url = $4,
 			description_ua = $5, description_en = $6, notes = $7
@@ -423,7 +428,10 @@ func (r *ArtistRepo) Update(ctx context.Context, id string, input domain.UpsertA
 
 func (r *ArtistRepo) Delete(ctx context.Context, id string) error {
 	// junction rows deleted by ON DELETE CASCADE
-	tag, err := r.db.Exec(ctx, `DELETE FROM artists WHERE id = $1`, id)
+	tag, err := r.db.Exec(ctx, `
+		-- name: artist.delete
+		DELETE FROM artists WHERE id = $1
+	`, id)
 	if err != nil {
 		return err
 	}
@@ -439,6 +447,7 @@ func (r *ArtistRepo) GetStats(ctx context.Context) (*domain.ArtistStats, error) 
 		lastAdded *string
 	)
 	err := r.db.QueryRow(ctx, `
+		-- name: artist.get_stats
 		SELECT COUNT(*), (SELECT name FROM artists ORDER BY created_at DESC LIMIT 1)
 		FROM artists
 	`).Scan(&total, &lastAdded)
@@ -449,32 +458,47 @@ func (r *ArtistRepo) GetStats(ctx context.Context) (*domain.ArtistStats, error) 
 }
 
 func (r *ArtistRepo) replaceArtistCountries(ctx context.Context, artistID int, countries []domain.ArtistCountryInput) error {
-	_, err := r.db.Exec(ctx, `DELETE FROM artist_countries WHERE artist_id = $1`, artistID)
+	_, err := r.db.Exec(ctx, `
+		-- name: artist.replace_countries.delete
+		DELETE FROM artist_countries WHERE artist_id = $1
+	`, artistID)
 	if err != nil {
 		return err
 	}
 	for i, c := range countries {
-		var sourceID *int
-		if c.SourceID != nil && *c.SourceID != "" {
-			n, err := strconv.Atoi(*c.SourceID)
-			if err == nil {
-				sourceID = &n
-			}
-		}
 		_, err := r.db.Exec(ctx, `
-			INSERT INTO artist_countries (artist_id, code, source_id, position)
-			VALUES ($1, $2, $3, $4)
+			-- name: artist.replace_countries.insert_country
+			INSERT INTO artist_countries (artist_id, code, position)
+			VALUES ($1, $2, $3)
 			ON CONFLICT (artist_id, code) DO NOTHING
-		`, artistID, c.Code, sourceID, i)
+		`, artistID, c.Code, i)
 		if err != nil {
 			return err
+		}
+		for _, sid := range c.SourceIDs {
+			n, err := strconv.Atoi(sid)
+			if err != nil {
+				continue
+			}
+			_, err = r.db.Exec(ctx, `
+				-- name: artist.replace_countries.insert_source
+				INSERT INTO artist_country_sources (artist_id, code, source_id)
+				VALUES ($1, $2, $3)
+				ON CONFLICT DO NOTHING
+			`, artistID, c.Code, n)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
 }
 
 func (r *ArtistRepo) replaceArtistLabels(ctx context.Context, artistID int, labelIDs []string) error {
-	_, err := r.db.Exec(ctx, `DELETE FROM artist_labels WHERE artist_id = $1`, artistID)
+	_, err := r.db.Exec(ctx, `
+		-- name: artist.replace_labels.delete
+		DELETE FROM artist_labels WHERE artist_id = $1
+	`, artistID)
 	if err != nil {
 		return err
 	}
@@ -493,6 +517,7 @@ func (r *ArtistRepo) replaceArtistLabels(ctx context.Context, artistID int, labe
 		return nil
 	}
 	_, err = r.db.Exec(ctx, `
+		-- name: artist.replace_labels.insert
 		INSERT INTO artist_labels (artist_id, label_id)
 		SELECT $1, id FROM labels WHERE id = ANY($2)
 		ON CONFLICT DO NOTHING
@@ -502,18 +527,26 @@ func (r *ArtistRepo) replaceArtistLabels(ctx context.Context, artistID int, labe
 
 func (r *ArtistRepo) fetchCountries(ctx context.Context, artistIDs []int) (map[int][]domain.ArtistCountry, error) {
 	rows, err := r.db.Query(ctx, `
+		-- name: artist.fetch_countries
 		SELECT ac.artist_id, ac.code, es.id, es.name, es.name_en
 		FROM artist_countries ac
-		LEFT JOIN evidence_sources es ON es.id = ac.source_id
+		LEFT JOIN artist_country_sources acs ON acs.artist_id = ac.artist_id AND acs.code = ac.code
+		LEFT JOIN evidence_sources es ON es.id = acs.source_id
 		WHERE ac.artist_id = ANY($1)
-		ORDER BY ac.position ASC
+		ORDER BY ac.position ASC, acs.source_id ASC
 	`, artistIDs)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
+	type countryKey struct{ artistID int; code string }
+	// maintain insertion order for positions
+	order := []countryKey{}
+	seen := map[countryKey]bool{}
 	result := map[int][]domain.ArtistCountry{}
+	sources := map[countryKey][]domain.SourceRef{}
+
 	for rows.Next() {
 		var (
 			artistID     int
@@ -525,21 +558,37 @@ func (r *ArtistRepo) fetchCountries(ctx context.Context, artistIDs []int) (map[i
 		if err := rows.Scan(&artistID, &code, &sourceID, &sourceName, &sourceNameEn); err != nil {
 			return nil, err
 		}
-		var source *domain.SourceRef
+		k := countryKey{artistID, code}
+		if !seen[k] {
+			seen[k] = true
+			order = append(order, k)
+			sources[k] = []domain.SourceRef{}
+		}
 		if sourceID != nil {
-			source = &domain.SourceRef{
+			sources[k] = append(sources[k], domain.SourceRef{
 				ID:     strconv.Itoa(*sourceID),
 				Name:   *sourceName,
 				NameEn: derefStr(sourceNameEn),
-			}
+			})
 		}
-		result[artistID] = append(result[artistID], domain.ArtistCountry{Code: code, Source: source})
 	}
-	return result, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	for _, k := range order {
+		srcs := sources[k]
+		if srcs == nil {
+			srcs = []domain.SourceRef{}
+		}
+		result[k.artistID] = append(result[k.artistID], domain.ArtistCountry{Code: k.code, Sources: srcs})
+	}
+	return result, nil
 }
 
 func (r *ArtistRepo) fetchLabels(ctx context.Context, artistIDs []int) (map[int][]domain.LabelRef, error) {
 	rows, err := r.db.Query(ctx, `
+		-- name: artist.fetch_labels
 		SELECT al.artist_id, l.id, l.name
 		FROM labels l
 		JOIN artist_labels al ON al.label_id = l.id

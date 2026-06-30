@@ -22,6 +22,7 @@ func NewEvidenceSourceRepo(db *pgxpool.Pool) *EvidenceSourceRepo {
 
 func (r *EvidenceSourceRepo) GetAll(ctx context.Context) ([]domain.EvidenceSource, error) {
 	rows, err := r.db.Query(ctx, `
+		-- name: source.get_all
 		SELECT id, name, name_en, created_at
 		FROM evidence_sources
 		ORDER BY name ASC
@@ -59,10 +60,11 @@ func (r *EvidenceSourceRepo) Create(ctx context.Context, input domain.UpsertSour
 		nameEn    string
 		createdAt time.Time
 	)
-	err := r.db.QueryRow(ctx,
-		`INSERT INTO evidence_sources (name, name_en) VALUES ($1, $2)
-		 RETURNING id, name, name_en, created_at`,
-		input.Name, input.NameEn,
+	err := r.db.QueryRow(ctx, `
+		-- name: source.create
+		INSERT INTO evidence_sources (name, name_en) VALUES ($1, $2)
+		RETURNING id, name, name_en, created_at
+	`, input.Name, input.NameEn,
 	).Scan(&id, &name, &nameEn, &createdAt)
 	if err != nil {
 		return nil, err
@@ -82,11 +84,12 @@ func (r *EvidenceSourceRepo) Update(ctx context.Context, id string, input domain
 		nameEn    string
 		createdAt time.Time
 	)
-	err := r.db.QueryRow(ctx,
-		`UPDATE evidence_sources SET name = $1, name_en = $2
-		 WHERE id = $3
-		 RETURNING id, name, name_en, created_at`,
-		input.Name, input.NameEn, id,
+	err := r.db.QueryRow(ctx, `
+		-- name: source.update
+		UPDATE evidence_sources SET name = $1, name_en = $2
+		WHERE id = $3
+		RETURNING id, name, name_en, created_at
+	`, input.Name, input.NameEn, id,
 	).Scan(&sid, &name, &nameEn, &createdAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -103,7 +106,10 @@ func (r *EvidenceSourceRepo) Update(ctx context.Context, id string, input domain
 }
 
 func (r *EvidenceSourceRepo) Delete(ctx context.Context, id string) error {
-	tag, err := r.db.Exec(ctx, `DELETE FROM evidence_sources WHERE id = $1`, id)
+	tag, err := r.db.Exec(ctx, `
+		-- name: source.delete
+		DELETE FROM evidence_sources WHERE id = $1
+	`, id)
 	if err != nil {
 		return err
 	}
