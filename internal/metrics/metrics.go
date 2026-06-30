@@ -119,11 +119,14 @@ func RecordHTTPRequest(ctx context.Context, method, route string, status int, d 
 	)
 }
 
-// RecordDBQuery records the duration of a completed database query.
-func RecordDBQuery(ctx context.Context, operation string, d time.Duration, err error) {
+// RecordDBQuery records the duration of a completed database query. name is
+// the low-cardinality query identifier parsed from its "-- name: ..." leading
+// comment (see metrics.queryName), or "unknown" if the query isn't tagged.
+func RecordDBQuery(ctx context.Context, name, operation string, d time.Duration, err error) {
 	dbQueryDuration.Record(ctx, d.Seconds(),
 		metric.WithAttributes(
 			attribute.String("db.operation.name", operation),
+			attribute.String("db.query.name", name),
 			attribute.Bool("error", err != nil),
 		),
 	)

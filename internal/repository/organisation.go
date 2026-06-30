@@ -30,6 +30,7 @@ func (r *OrganisationRepo) GetAll(ctx context.Context, params domain.ListOrganis
 
 	var total int
 	err := r.db.QueryRow(ctx, `
+		-- name: organisation.get_all.count
 		SELECT COUNT(*) FROM organisations
 		WHERE ($1 = '' OR type = $1)
 		  AND ($2 = '' OR name ILIKE '%' || $2 || '%')
@@ -39,6 +40,7 @@ func (r *OrganisationRepo) GetAll(ctx context.Context, params domain.ListOrganis
 	}
 
 	rows, err := r.db.Query(ctx, `
+		-- name: organisation.get_all.items
 		SELECT id, name, link, origin, description_uk, description_en, notes, type, recommendation, created_at, updated_at
 		FROM organisations
 		WHERE ($1 = '' OR type = $1)
@@ -89,6 +91,7 @@ func (r *OrganisationRepo) Create(ctx context.Context, input domain.UpsertOrgani
 	var o domain.Organisation
 	var id int
 	err := r.db.QueryRow(ctx, `
+		-- name: organisation.create
 		INSERT INTO organisations (name, link, origin, description_uk, description_en, notes, type, recommendation)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		RETURNING id, name, link, origin, description_uk, description_en, notes, type, recommendation, created_at, updated_at
@@ -106,6 +109,7 @@ func (r *OrganisationRepo) Update(ctx context.Context, id string, input domain.U
 	var o domain.Organisation
 	var oid int
 	err := r.db.QueryRow(ctx, `
+		-- name: organisation.update
 		UPDATE organisations
 		SET name = $1, link = $2, origin = $3, description_uk = $4, description_en = $5, notes = $6, type = $7, recommendation = $8
 		WHERE id = $9
@@ -124,7 +128,10 @@ func (r *OrganisationRepo) Update(ctx context.Context, id string, input domain.U
 }
 
 func (r *OrganisationRepo) Delete(ctx context.Context, id string) error {
-	tag, err := r.db.Exec(ctx, `DELETE FROM organisations WHERE id = $1`, id)
+	tag, err := r.db.Exec(ctx, `
+		-- name: organisation.delete
+		DELETE FROM organisations WHERE id = $1
+	`, id)
 	if err != nil {
 		return err
 	}

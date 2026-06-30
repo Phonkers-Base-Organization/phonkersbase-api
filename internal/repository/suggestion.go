@@ -19,6 +19,7 @@ func NewSuggestionRepo(db *pgxpool.Pool) *SuggestionRepo {
 
 func (r *SuggestionRepo) GetAll(ctx context.Context) ([]domain.Suggestion, error) {
 	rows, err := r.db.Query(ctx, `
+		-- name: suggestion.get_all
 		SELECT id, name, link, countries, listen_labels, evidence, description, created_at
 		FROM suggestions
 		ORDER BY created_at DESC
@@ -59,6 +60,7 @@ func (r *SuggestionRepo) Create(ctx context.Context, name string, link *string, 
 		s  domain.Suggestion
 	)
 	err := r.db.QueryRow(ctx, `
+		-- name: suggestion.create
 		INSERT INTO suggestions (name, link, countries, listen_labels, evidence, description)
 		VALUES ($1, $2, $3, $4, $5, $6)
 		RETURNING id, name, link, countries, listen_labels, evidence, description, created_at
@@ -81,7 +83,10 @@ func (r *SuggestionRepo) Create(ctx context.Context, name string, link *string, 
 }
 
 func (r *SuggestionRepo) Delete(ctx context.Context, id string) error {
-	tag, err := r.db.Exec(ctx, `DELETE FROM suggestions WHERE id = $1`, id)
+	tag, err := r.db.Exec(ctx, `
+		-- name: suggestion.delete
+		DELETE FROM suggestions WHERE id = $1
+	`, id)
 	if err != nil {
 		return err
 	}

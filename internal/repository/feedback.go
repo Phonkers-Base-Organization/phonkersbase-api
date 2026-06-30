@@ -19,6 +19,7 @@ func NewFeedbackRepo(db *pgxpool.Pool) *FeedbackRepo {
 
 func (r *FeedbackRepo) GetAll(ctx context.Context) ([]domain.Feedback, error) {
 	rows, err := r.db.Query(ctx, `
+		-- name: feedback.get_all
 		SELECT id, type, text, email, created_at
 		FROM feedbacks
 		ORDER BY created_at DESC
@@ -49,6 +50,7 @@ func (r *FeedbackRepo) Create(ctx context.Context, typ, text string, email *stri
 		f  domain.Feedback
 	)
 	err := r.db.QueryRow(ctx, `
+		-- name: feedback.create
 		INSERT INTO feedbacks (type, text, email)
 		VALUES ($1, $2, $3)
 		RETURNING id, type, text, email, created_at
@@ -61,7 +63,10 @@ func (r *FeedbackRepo) Create(ctx context.Context, typ, text string, email *stri
 }
 
 func (r *FeedbackRepo) Delete(ctx context.Context, id string) error {
-	tag, err := r.db.Exec(ctx, `DELETE FROM feedbacks WHERE id = $1`, id)
+	tag, err := r.db.Exec(ctx, `
+		-- name: feedback.delete
+		DELETE FROM feedbacks WHERE id = $1
+	`, id)
 	if err != nil {
 		return err
 	}

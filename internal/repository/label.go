@@ -21,6 +21,7 @@ func NewLabelRepo(db *pgxpool.Pool) *LabelRepo {
 
 func (r *LabelRepo) GetAll(ctx context.Context) ([]domain.Label, error) {
 	rows, err := r.db.Query(ctx, `
+		-- name: label.get_all
 		SELECT id, name, priority, created_at, updated_at
 		FROM labels
 		ORDER BY priority DESC, name ASC
@@ -49,6 +50,7 @@ func (r *LabelRepo) Create(ctx context.Context, input domain.UpsertLabelInput) (
 	var l domain.Label
 	var id int
 	err := r.db.QueryRow(ctx, `
+		-- name: label.create
 		INSERT INTO labels (name, priority)
 		VALUES ($1, $2)
 		RETURNING id, name, priority, created_at, updated_at
@@ -66,6 +68,7 @@ func (r *LabelRepo) Update(ctx context.Context, id string, input domain.UpsertLa
 	var l domain.Label
 	var lid int
 	err := r.db.QueryRow(ctx, `
+		-- name: label.update
 		UPDATE labels SET name = $1, priority = $2
 		WHERE id = $3
 		RETURNING id, name, priority, created_at, updated_at
@@ -83,7 +86,10 @@ func (r *LabelRepo) Update(ctx context.Context, id string, input domain.UpsertLa
 }
 
 func (r *LabelRepo) Delete(ctx context.Context, id string) error {
-	tag, err := r.db.Exec(ctx, `DELETE FROM labels WHERE id = $1`, id)
+	tag, err := r.db.Exec(ctx, `
+		-- name: label.delete
+		DELETE FROM labels WHERE id = $1
+	`, id)
 	if err != nil {
 		return err
 	}
