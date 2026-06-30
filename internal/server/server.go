@@ -124,9 +124,6 @@ func Run() error {
 		protected.PUT("/label/:id", h.UpdateLabel)
 		protected.DELETE("/label/:id", h.DeleteLabel)
 
-		protected.POST("/organisation", h.CreateOrganisation)
-		protected.PUT("/organisation/:id", h.UpdateOrganisation)
-		protected.DELETE("/organisation/:id", h.DeleteOrganisation)
 
 		protected.GET("/suggestion", h.GetSuggestions)
 		protected.DELETE("/suggestion/:id", h.DeleteSuggestion)
@@ -148,6 +145,10 @@ func Run() error {
 		admin.POST("/source", h.CreateSource)
 		admin.PUT("/source/:id", h.UpdateSource)
 		admin.DELETE("/source/:id", h.DeleteSource)
+
+		admin.POST("/organisation", h.CreateOrganisation)
+		admin.PUT("/organisation/:id", h.UpdateOrganisation)
+		admin.DELETE("/organisation/:id", h.DeleteOrganisation)
 
 	}
 
