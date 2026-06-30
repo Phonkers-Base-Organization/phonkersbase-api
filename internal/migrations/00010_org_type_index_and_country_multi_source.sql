@@ -1,3 +1,6 @@
+-- Composite index for type-specific queries ordered by name
+CREATE INDEX ON organisations (type, name);
+
 -- Allow multiple evidence sources per (artist, country) pair
 CREATE TABLE artist_country_sources (
     artist_id INT  NOT NULL,
@@ -28,3 +31,5 @@ SET source_id = (
 );
 
 DROP TABLE IF EXISTS artist_country_sources;
+
+DROP INDEX IF EXISTS organisations_type_name_idx;
