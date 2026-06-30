@@ -9,6 +9,45 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+func (h *Handler) GetLabelOrganisations(c *gin.Context) {
+	h.getOrganisationsByType(c, "Label")
+}
+
+func (h *Handler) GetDistributorOrganisations(c *gin.Context) {
+	h.getOrganisationsByType(c, "Distributor")
+}
+
+func (h *Handler) GetCultOrganisations(c *gin.Context) {
+	h.getOrganisationsByType(c, "Cult")
+}
+
+func (h *Handler) getOrganisationsByType(c *gin.Context, orgType string) {
+	params := domain.ListOrganisationsParams{
+		Type:   orgType,
+		Search: c.Query("search"),
+	}
+	if v := c.Query("offset"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
+			params.Offset = n
+		}
+	}
+	if v := c.Query("limit"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 1 || n > 500 {
+			c.JSON(http.StatusBadRequest, gin.H{"errors": gin.H{"limit": "must be between 1 and 500"}})
+			return
+		}
+		params.Limit = n
+	}
+
+	result, err := h.organisations.GetAll(c.Request.Context(), params)
+	if err != nil {
+		internalErr(c, err, "failed to get organisations")
+		return
+	}
+	c.JSON(http.StatusOK, result)
+}
+
 func (h *Handler) GetOrganisations(c *gin.Context) {
 	params := domain.ListOrganisationsParams{
 		Type:   c.Query("type"),
