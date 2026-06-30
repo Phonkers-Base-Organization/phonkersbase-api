@@ -12,7 +12,7 @@ import (
 // slowQueryThreshold is the duration above which a query is logged as a
 // warning, so a Grafana latency alert can be traced back to the offending
 // query via logs instead of just a bare "SELECT was slow" metric.
-const slowQueryThreshold = 500 * time.Millisecond
+const slowQueryThreshold = 200 * time.Millisecond
 
 // unnamedQuery is the db.query.name value for queries missing a "-- name:"
 // leading comment.
