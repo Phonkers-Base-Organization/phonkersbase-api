@@ -42,8 +42,8 @@ type SourceRef struct {
 }
 
 type ArtistCountry struct {
-	Code   string     `json:"code"`
-	Source *SourceRef `json:"source"`
+	Code    string      `json:"code"`
+	Sources []SourceRef `json:"sources"`
 }
 
 type Artist struct {
@@ -117,8 +117,8 @@ type ArtistStats struct {
 }
 
 type ArtistCountryInput struct {
-	Code     string  `json:"code" binding:"required"`
-	SourceID *string `json:"sourceId"`
+	Code      string   `json:"code" binding:"required"`
+	SourceIDs []string `json:"sourceIds"`
 }
 
 type UpsertArtistInput struct {

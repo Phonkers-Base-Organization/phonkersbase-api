@@ -454,20 +454,27 @@ func (r *ArtistRepo) replaceArtistCountries(ctx context.Context, artistID int, c
 		return err
 	}
 	for i, c := range countries {
-		var sourceID *int
-		if c.SourceID != nil && *c.SourceID != "" {
-			n, err := strconv.Atoi(*c.SourceID)
-			if err == nil {
-				sourceID = &n
-			}
-		}
 		_, err := r.db.Exec(ctx, `
-			INSERT INTO artist_countries (artist_id, code, source_id, position)
-			VALUES ($1, $2, $3, $4)
+			INSERT INTO artist_countries (artist_id, code, position)
+			VALUES ($1, $2, $3)
 			ON CONFLICT (artist_id, code) DO NOTHING
-		`, artistID, c.Code, sourceID, i)
+		`, artistID, c.Code, i)
 		if err != nil {
 			return err
+		}
+		for _, sid := range c.SourceIDs {
+			n, err := strconv.Atoi(sid)
+			if err != nil {
+				continue
+			}
+			_, err = r.db.Exec(ctx, `
+				INSERT INTO artist_country_sources (artist_id, code, source_id)
+				VALUES ($1, $2, $3)
+				ON CONFLICT DO NOTHING
+			`, artistID, c.Code, n)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -504,16 +511,23 @@ func (r *ArtistRepo) fetchCountries(ctx context.Context, artistIDs []int) (map[i
 	rows, err := r.db.Query(ctx, `
 		SELECT ac.artist_id, ac.code, es.id, es.name, es.name_en
 		FROM artist_countries ac
-		LEFT JOIN evidence_sources es ON es.id = ac.source_id
+		LEFT JOIN artist_country_sources acs ON acs.artist_id = ac.artist_id AND acs.code = ac.code
+		LEFT JOIN evidence_sources es ON es.id = acs.source_id
 		WHERE ac.artist_id = ANY($1)
-		ORDER BY ac.position ASC
+		ORDER BY ac.position ASC, acs.source_id ASC
 	`, artistIDs)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
+	type countryKey struct{ artistID int; code string }
+	// maintain insertion order for positions
+	order := []countryKey{}
+	seen := map[countryKey]bool{}
 	result := map[int][]domain.ArtistCountry{}
+	sources := map[countryKey][]domain.SourceRef{}
+
 	for rows.Next() {
 		var (
 			artistID     int
@@ -525,17 +539,32 @@ func (r *ArtistRepo) fetchCountries(ctx context.Context, artistIDs []int) (map[i
 		if err := rows.Scan(&artistID, &code, &sourceID, &sourceName, &sourceNameEn); err != nil {
 			return nil, err
 		}
-		var source *domain.SourceRef
+		k := countryKey{artistID, code}
+		if !seen[k] {
+			seen[k] = true
+			order = append(order, k)
+			sources[k] = []domain.SourceRef{}
+		}
 		if sourceID != nil {
-			source = &domain.SourceRef{
+			sources[k] = append(sources[k], domain.SourceRef{
 				ID:     strconv.Itoa(*sourceID),
 				Name:   *sourceName,
 				NameEn: derefStr(sourceNameEn),
-			}
+			})
 		}
-		result[artistID] = append(result[artistID], domain.ArtistCountry{Code: code, Source: source})
 	}
-	return result, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	for _, k := range order {
+		srcs := sources[k]
+		if srcs == nil {
+			srcs = []domain.SourceRef{}
+		}
+		result[k.artistID] = append(result[k.artistID], domain.ArtistCountry{Code: k.code, Sources: srcs})
+	}
+	return result, nil
 }
 
 func (r *ArtistRepo) fetchLabels(ctx context.Context, artistIDs []int) (map[int][]domain.LabelRef, error) {
