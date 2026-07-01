@@ -60,6 +60,7 @@ type ListChangesParams struct {
 	EntityType string
 	EntityID   string
 	Action     string
+	Editor     string
 	Search     string
 	Limit      int
 	Offset     int

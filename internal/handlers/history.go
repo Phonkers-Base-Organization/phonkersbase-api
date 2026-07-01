@@ -11,6 +11,7 @@ import (
 func (h *Handler) GetHistory(c *gin.Context) {
 	params := domain.ListChangesParams{
 		EntityID: c.Query("entityId"),
+		Editor:   c.Query("editor"),
 		Search:   c.Query("search"),
 	}
 
@@ -50,4 +51,13 @@ func (h *Handler) GetHistory(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, result)
+}
+
+func (h *Handler) GetHistoryEditors(c *gin.Context) {
+	editors, err := h.changeHistory.ListEditors(c.Request.Context())
+	if err != nil {
+		internalErr(c, err, "failed to get change history editors")
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"items": editors})
 }

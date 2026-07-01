@@ -56,6 +56,28 @@ func marshalOrNil(v any) ([]byte, error) {
 	return json.Marshal(v)
 }
 
+// ListEditors returns the distinct editor usernames present in the change history.
+func (r *ChangeHistoryRepo) ListEditors(ctx context.Context) ([]string, error) {
+	rows, err := r.db.Query(ctx, `
+		-- name: change_history.list_editors
+		SELECT DISTINCT editor_username FROM change_history ORDER BY editor_username
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	editors := []string{}
+	for rows.Next() {
+		var e string
+		if err := rows.Scan(&e); err != nil {
+			return nil, err
+		}
+		editors = append(editors, e)
+	}
+	return editors, rows.Err()
+}
+
 func (r *ChangeHistoryRepo) List(ctx context.Context, params domain.ListChangesParams) (*domain.PaginatedChanges, error) {
 	limit := params.Limit
 	if limit <= 0 {
@@ -84,8 +106,13 @@ func (r *ChangeHistoryRepo) List(ctx context.Context, params domain.ListChangesP
 		args = append(args, params.Action)
 		n++
 	}
+	if params.Editor != "" {
+		conditions = append(conditions, fmt.Sprintf("editor_username = $%d", n))
+		args = append(args, params.Editor)
+		n++
+	}
 	if params.Search != "" {
-		conditions = append(conditions, fmt.Sprintf("(entity_name ILIKE '%%' || $%d || '%%' OR editor_username ILIKE '%%' || $%d || '%%')", n, n))
+		conditions = append(conditions, fmt.Sprintf("entity_name ILIKE '%%' || $%d || '%%'", n))
 		args = append(args, params.Search)
 		n++
 	}

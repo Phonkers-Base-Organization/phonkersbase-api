@@ -133,6 +133,7 @@ func Run() error {
 		protected.DELETE("/feedback/:id", h.DeleteFeedback)
 
 		protected.GET("/history", h.GetHistory)
+		protected.GET("/history/editors", h.GetHistoryEditors)
 	}
 
 	// Admin-only routes
