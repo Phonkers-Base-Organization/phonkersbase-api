@@ -46,6 +46,25 @@ func (r *LabelRepo) GetAll(ctx context.Context) ([]domain.Label, error) {
 	return labels, rows.Err()
 }
 
+func (r *LabelRepo) GetByID(ctx context.Context, id string) (*domain.Label, error) {
+	var l domain.Label
+	var lid int
+	err := r.db.QueryRow(ctx, `
+		-- name: label.get_by_id
+		SELECT id, name, priority, created_at, updated_at
+		FROM labels
+		WHERE id = $1
+	`, id).Scan(&lid, &l.Name, &l.Priority, &l.CreatedAt, &l.UpdatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	l.ID = strconv.Itoa(lid)
+	return &l, nil
+}
+
 func (r *LabelRepo) Create(ctx context.Context, input domain.UpsertLabelInput) (*domain.Label, error) {
 	var l domain.Label
 	var id int

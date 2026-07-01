@@ -7,6 +7,7 @@ import (
 	"github.com/PhonkersBase/base-api2/internal/domain"
 	"github.com/PhonkersBase/base-api2/internal/repository"
 	"github.com/gin-gonic/gin"
+	"github.com/rs/zerolog/log"
 )
 
 func (h *Handler) GetLabelOrganisations(c *gin.Context) {
@@ -91,6 +92,7 @@ func (h *Handler) CreateOrganisation(c *gin.Context) {
 		internalErr(c, err, "failed to create organisation")
 		return
 	}
+	h.recordChange(c, domain.EntityTypeOrganisation, org.ID, org.Name, domain.ChangeActionCreate, nil, org)
 	c.JSON(http.StatusCreated, org)
 }
 
@@ -106,6 +108,12 @@ func (h *Handler) UpdateOrganisation(c *gin.Context) {
 		return
 	}
 
+	old, err := h.organisations.GetByID(c.Request.Context(), id)
+	if err != nil && err != repository.ErrNotFound {
+		log.Warn().Err(err).Str("id", id).Msg("failed to fetch organisation before update, recording change without old data")
+		old = nil
+	}
+
 	org, err := h.organisations.Update(c.Request.Context(), id, input)
 	if err != nil {
 		if err == repository.ErrNotFound {
@@ -115,11 +123,23 @@ func (h *Handler) UpdateOrganisation(c *gin.Context) {
 		internalErr(c, err, "failed to update organisation")
 		return
 	}
+	if old != nil {
+		h.recordChange(c, domain.EntityTypeOrganisation, org.ID, org.Name, domain.ChangeActionUpdate, old, org)
+	} else {
+		h.recordChange(c, domain.EntityTypeOrganisation, org.ID, org.Name, domain.ChangeActionUpdate, nil, org)
+	}
 	c.JSON(http.StatusOK, org)
 }
 
 func (h *Handler) DeleteOrganisation(c *gin.Context) {
 	id := c.Param("id")
+
+	old, err := h.organisations.GetByID(c.Request.Context(), id)
+	if err != nil && err != repository.ErrNotFound {
+		log.Warn().Err(err).Str("id", id).Msg("failed to fetch organisation before delete, recording change without old data")
+		old = nil
+	}
+
 	if err := h.organisations.Delete(c.Request.Context(), id); err != nil {
 		if err == repository.ErrNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"message": "organisation not found"})
@@ -127,6 +147,11 @@ func (h *Handler) DeleteOrganisation(c *gin.Context) {
 		}
 		internalErr(c, err, "failed to delete organisation")
 		return
+	}
+	if old != nil {
+		h.recordChange(c, domain.EntityTypeOrganisation, id, old.Name, domain.ChangeActionDelete, old, nil)
+	} else {
+		h.recordChange(c, domain.EntityTypeOrganisation, id, "", domain.ChangeActionDelete, nil, nil)
 	}
 	c.Status(http.StatusNoContent)
 }

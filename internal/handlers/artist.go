@@ -8,6 +8,7 @@ import (
 	"github.com/PhonkersBase/base-api2/internal/domain"
 	"github.com/PhonkersBase/base-api2/internal/repository"
 	"github.com/gin-gonic/gin"
+	"github.com/rs/zerolog/log"
 )
 
 func (h *Handler) GetArtists(c *gin.Context) {
@@ -106,6 +107,7 @@ func (h *Handler) CreateArtist(c *gin.Context) {
 		internalErr(c, err, "failed to create artist")
 		return
 	}
+	h.recordChange(c, domain.EntityTypeArtist, artist.ID, artist.Name, domain.ChangeActionCreate, nil, artist)
 	c.JSON(http.StatusCreated, artist)
 }
 
@@ -117,6 +119,16 @@ func (h *Handler) UpdateArtist(c *gin.Context) {
 		return
 	}
 
+	var old *domain.Artist
+	if aid, convErr := strconv.Atoi(id); convErr == nil {
+		fetched, fetchErr := h.artists.GetByID(c.Request.Context(), aid)
+		if fetchErr != nil && fetchErr != repository.ErrNotFound {
+			log.Warn().Err(fetchErr).Str("id", id).Msg("failed to fetch artist before update, recording change without old data")
+		} else {
+			old = fetched
+		}
+	}
+
 	artist, err := h.artists.Update(c.Request.Context(), id, input)
 	if err != nil {
 		if err == repository.ErrNotFound {
@@ -126,11 +138,27 @@ func (h *Handler) UpdateArtist(c *gin.Context) {
 		internalErr(c, err, "failed to update artist")
 		return
 	}
+	if old != nil {
+		h.recordChange(c, domain.EntityTypeArtist, artist.ID, artist.Name, domain.ChangeActionUpdate, old, artist)
+	} else {
+		h.recordChange(c, domain.EntityTypeArtist, artist.ID, artist.Name, domain.ChangeActionUpdate, nil, artist)
+	}
 	c.JSON(http.StatusOK, artist)
 }
 
 func (h *Handler) DeleteArtist(c *gin.Context) {
 	id := c.Param("id")
+
+	var old *domain.Artist
+	if aid, convErr := strconv.Atoi(id); convErr == nil {
+		fetched, fetchErr := h.artists.GetByID(c.Request.Context(), aid)
+		if fetchErr != nil && fetchErr != repository.ErrNotFound {
+			log.Warn().Err(fetchErr).Str("id", id).Msg("failed to fetch artist before delete, recording change without old data")
+		} else {
+			old = fetched
+		}
+	}
+
 	if err := h.artists.Delete(c.Request.Context(), id); err != nil {
 		if err == repository.ErrNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"message": "artist not found"})
@@ -138,6 +166,11 @@ func (h *Handler) DeleteArtist(c *gin.Context) {
 		}
 		internalErr(c, err, "failed to delete artist")
 		return
+	}
+	if old != nil {
+		h.recordChange(c, domain.EntityTypeArtist, id, old.Name, domain.ChangeActionDelete, old, nil)
+	} else {
+		h.recordChange(c, domain.EntityTypeArtist, id, "", domain.ChangeActionDelete, nil, nil)
 	}
 	c.Status(http.StatusNoContent)
 }

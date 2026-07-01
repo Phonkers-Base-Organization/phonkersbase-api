@@ -69,6 +69,7 @@ func Run() error {
 		repository.NewSuggestionRepo(dbpool),
 		repository.NewFeedbackRepo(dbpool),
 		repository.NewOrganisationRepo(dbpool),
+		repository.NewChangeHistoryRepo(dbpool),
 		cfg.JWTSecret,
 	)
 
@@ -130,6 +131,8 @@ func Run() error {
 
 		protected.GET("/feedback", h.GetFeedbacks)
 		protected.DELETE("/feedback/:id", h.DeleteFeedback)
+
+		protected.GET("/history", h.GetHistory)
 	}
 
 	// Admin-only routes

@@ -53,6 +53,33 @@ func (r *EvidenceSourceRepo) GetAll(ctx context.Context) ([]domain.EvidenceSourc
 	return sources, rows.Err()
 }
 
+func (r *EvidenceSourceRepo) GetByID(ctx context.Context, id string) (*domain.EvidenceSource, error) {
+	var (
+		sid       int
+		name      string
+		nameEn    string
+		createdAt time.Time
+	)
+	err := r.db.QueryRow(ctx, `
+		-- name: source.get_by_id
+		SELECT id, name, name_en, created_at
+		FROM evidence_sources
+		WHERE id = $1
+	`, id).Scan(&sid, &name, &nameEn, &createdAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	return &domain.EvidenceSource{
+		ID:        strconv.Itoa(sid),
+		Name:      name,
+		NameEn:    nameEn,
+		CreatedAt: createdAt,
+	}, nil
+}
+
 func (r *EvidenceSourceRepo) Create(ctx context.Context, input domain.UpsertSourceInput) (*domain.EvidenceSource, error) {
 	var (
 		id        int

@@ -6,6 +6,7 @@ import (
 	"github.com/PhonkersBase/base-api2/internal/domain"
 	"github.com/PhonkersBase/base-api2/internal/repository"
 	"github.com/gin-gonic/gin"
+	"github.com/rs/zerolog/log"
 )
 
 func (h *Handler) GetSources(c *gin.Context) {
@@ -29,6 +30,7 @@ func (h *Handler) CreateSource(c *gin.Context) {
 		internalErr(c, err, "failed to create source")
 		return
 	}
+	h.recordChange(c, domain.EntityTypeSource, source.ID, source.Name, domain.ChangeActionCreate, nil, source)
 	c.JSON(http.StatusCreated, source)
 }
 
@@ -40,6 +42,12 @@ func (h *Handler) UpdateSource(c *gin.Context) {
 		return
 	}
 
+	old, err := h.sources.GetByID(c.Request.Context(), id)
+	if err != nil && err != repository.ErrNotFound {
+		log.Warn().Err(err).Str("id", id).Msg("failed to fetch source before update, recording change without old data")
+		old = nil
+	}
+
 	source, err := h.sources.Update(c.Request.Context(), id, input)
 	if err != nil {
 		if err == repository.ErrNotFound {
@@ -49,11 +57,23 @@ func (h *Handler) UpdateSource(c *gin.Context) {
 		internalErr(c, err, "failed to update source")
 		return
 	}
+	if old != nil {
+		h.recordChange(c, domain.EntityTypeSource, source.ID, source.Name, domain.ChangeActionUpdate, old, source)
+	} else {
+		h.recordChange(c, domain.EntityTypeSource, source.ID, source.Name, domain.ChangeActionUpdate, nil, source)
+	}
 	c.JSON(http.StatusOK, source)
 }
 
 func (h *Handler) DeleteSource(c *gin.Context) {
 	id := c.Param("id")
+
+	old, err := h.sources.GetByID(c.Request.Context(), id)
+	if err != nil && err != repository.ErrNotFound {
+		log.Warn().Err(err).Str("id", id).Msg("failed to fetch source before delete, recording change without old data")
+		old = nil
+	}
+
 	if err := h.sources.Delete(c.Request.Context(), id); err != nil {
 		if err == repository.ErrNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"message": "source not found"})
@@ -61,6 +81,11 @@ func (h *Handler) DeleteSource(c *gin.Context) {
 		}
 		internalErr(c, err, "failed to delete source")
 		return
+	}
+	if old != nil {
+		h.recordChange(c, domain.EntityTypeSource, id, old.Name, domain.ChangeActionDelete, old, nil)
+	} else {
+		h.recordChange(c, domain.EntityTypeSource, id, "", domain.ChangeActionDelete, nil, nil)
 	}
 	c.Status(http.StatusNoContent)
 }
