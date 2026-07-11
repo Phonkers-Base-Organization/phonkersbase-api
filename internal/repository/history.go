@@ -171,6 +171,9 @@ func (r *ChangeHistoryRepo) List(ctx context.Context, params domain.ListChangesP
 		totalPages++
 	}
 	currentPage := params.Offset/limit + 1
+	if totalPages > 0 && currentPage > totalPages {
+		currentPage = totalPages
+	}
 
 	return &domain.PaginatedChanges{
 		Items: items,
