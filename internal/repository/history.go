@@ -113,7 +113,7 @@ func (r *ChangeHistoryRepo) List(ctx context.Context, params domain.ListChangesP
 	}
 	if params.Search != "" {
 		conditions = append(conditions, fmt.Sprintf("entity_name ILIKE '%%' || $%d || '%%'", n))
-		args = append(args, params.Search)
+		args = append(args, escapeLikePattern(params.Search))
 		n++
 	}
 

@@ -34,7 +34,7 @@ func (r *OrganisationRepo) GetAll(ctx context.Context, params domain.ListOrganis
 		SELECT COUNT(*) FROM organisations
 		WHERE ($1 = '' OR type = $1)
 		  AND ($2 = '' OR name ILIKE '%' || $2 || '%')
-	`, params.Type, params.Search).Scan(&total)
+	`, params.Type, escapeLikePattern(params.Search)).Scan(&total)
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +47,7 @@ func (r *OrganisationRepo) GetAll(ctx context.Context, params domain.ListOrganis
 		  AND ($2 = '' OR name ILIKE '%' || $2 || '%')
 		ORDER BY name ASC
 		LIMIT $3 OFFSET $4
-	`, params.Type, params.Search, limit, params.Offset)
+	`, params.Type, escapeLikePattern(params.Search), limit, params.Offset)
 	if err != nil {
 		return nil, err
 	}
