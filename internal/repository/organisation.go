@@ -34,7 +34,7 @@ func (r *OrganisationRepo) GetAll(ctx context.Context, params domain.ListOrganis
 		SELECT COUNT(*) FROM organisations
 		WHERE ($1 = '' OR type = $1)
 		  AND ($2 = '' OR name ILIKE '%' || $2 || '%')
-	`, params.Type, params.Search).Scan(&total)
+	`, params.Type, escapeLikePattern(params.Search)).Scan(&total)
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +47,7 @@ func (r *OrganisationRepo) GetAll(ctx context.Context, params domain.ListOrganis
 		  AND ($2 = '' OR name ILIKE '%' || $2 || '%')
 		ORDER BY name ASC
 		LIMIT $3 OFFSET $4
-	`, params.Type, params.Search, limit, params.Offset)
+	`, params.Type, escapeLikePattern(params.Search), limit, params.Offset)
 	if err != nil {
 		return nil, err
 	}
@@ -85,6 +85,27 @@ func (r *OrganisationRepo) GetAll(ctx context.Context, params domain.ListOrganis
 			CurrentPage: currentPage,
 		},
 	}, nil
+}
+
+func (r *OrganisationRepo) GetByID(ctx context.Context, id string) (*domain.Organisation, error) {
+	var o domain.Organisation
+	var oid int
+	err := r.db.QueryRow(ctx, `
+		-- name: organisation.get_by_id
+		SELECT id, name, link, origin, description_uk, description_en, notes, type, recommendation, created_at, updated_at
+		FROM organisations
+		WHERE id = $1
+	`, id).Scan(
+		&oid, &o.Name, &o.Link, &o.Origin, &o.DescriptionUk, &o.DescriptionEn, &o.Notes, &o.Type, &o.Recommendation, &o.CreatedAt, &o.UpdatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	o.ID = strconv.Itoa(oid)
+	return &o, nil
 }
 
 func (r *OrganisationRepo) Create(ctx context.Context, input domain.UpsertOrganisationInput) (*domain.Organisation, error) {

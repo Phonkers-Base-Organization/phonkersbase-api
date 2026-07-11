@@ -30,6 +30,7 @@ type Handler struct {
 	suggestions   *repository.SuggestionRepo
 	feedbacks     *repository.FeedbackRepo
 	organisations *repository.OrganisationRepo
+	changeHistory *repository.ChangeHistoryRepo
 	jwtSecret     string
 }
 
@@ -41,6 +42,7 @@ func NewHandler(
 	suggestions *repository.SuggestionRepo,
 	feedbacks *repository.FeedbackRepo,
 	organisations *repository.OrganisationRepo,
+	changeHistory *repository.ChangeHistoryRepo,
 	jwtSecret string,
 ) *Handler {
 	return &Handler{
@@ -51,6 +53,34 @@ func NewHandler(
 		suggestions:   suggestions,
 		feedbacks:     feedbacks,
 		organisations: organisations,
+		changeHistory: changeHistory,
 		jwtSecret:     jwtSecret,
+	}
+}
+
+// recordChange best-effort records a change_history entry for the given entity mutation. It
+// never fails the request: any error is logged and swallowed, since audit logging is a
+// secondary concern to the mutation itself.
+func (h *Handler) recordChange(c *gin.Context, entityType, entityID, entityName, action string, old, new any) {
+	editorID := c.GetString("userID")
+	editorUsername := c.GetString("username")
+
+	err := h.changeHistory.Insert(c.Request.Context(), repository.ChangeHistoryEntry{
+		EntityType:     entityType,
+		EntityID:       entityID,
+		EntityName:     entityName,
+		Action:         action,
+		EditorID:       editorID,
+		EditorUsername: editorUsername,
+		Old:            old,
+		New:            new,
+	})
+	if err != nil {
+		log.Error().
+			Err(err).
+			Str("entityType", entityType).
+			Str("entityId", entityID).
+			Str("action", action).
+			Msg("failed to record change history")
 	}
 }

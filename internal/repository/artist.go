@@ -677,7 +677,7 @@ func buildSearchCondition(search string, descCols []string, n *int, args *[]any)
 			orClauses = append(orClauses, fmt.Sprintf("%s ILIKE $%d", col, *n))
 		}
 		orClauses = append(orClauses, fmt.Sprintf("SPLIT_PART(a.link, '?', 1) ILIKE $%d", *n))
-		*args = append(*args, "%"+searchBase+"%")
+		*args = append(*args, "%"+escapeLikePattern(searchBase)+"%")
 		*n++
 		if spotifyID := extractSpotifyID(term); spotifyID != "" {
 			orClauses = append(orClauses, fmt.Sprintf("a.spotify_id = $%d", *n))
