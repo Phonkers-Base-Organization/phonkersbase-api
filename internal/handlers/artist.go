@@ -138,11 +138,7 @@ func (h *Handler) UpdateArtist(c *gin.Context) {
 		internalErr(c, err, "failed to update artist")
 		return
 	}
-	if old != nil {
-		h.recordChange(c, domain.EntityTypeArtist, artist.ID, artist.Name, domain.ChangeActionUpdate, old, artist)
-	} else {
-		h.recordChange(c, domain.EntityTypeArtist, artist.ID, artist.Name, domain.ChangeActionUpdate, nil, artist)
-	}
+	h.recordChange(c, domain.EntityTypeArtist, artist.ID, artist.Name, domain.ChangeActionUpdate, old, artist)
 	c.JSON(http.StatusOK, artist)
 }
 
@@ -167,11 +163,11 @@ func (h *Handler) DeleteArtist(c *gin.Context) {
 		internalErr(c, err, "failed to delete artist")
 		return
 	}
+	deletedName := ""
 	if old != nil {
-		h.recordChange(c, domain.EntityTypeArtist, id, old.Name, domain.ChangeActionDelete, old, nil)
-	} else {
-		h.recordChange(c, domain.EntityTypeArtist, id, "", domain.ChangeActionDelete, nil, nil)
+		deletedName = old.Name
 	}
+	h.recordChange(c, domain.EntityTypeArtist, id, deletedName, domain.ChangeActionDelete, old, nil)
 	c.Status(http.StatusNoContent)
 }
 

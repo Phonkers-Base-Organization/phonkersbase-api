@@ -57,11 +57,7 @@ func (h *Handler) UpdateSource(c *gin.Context) {
 		internalErr(c, err, "failed to update source")
 		return
 	}
-	if old != nil {
-		h.recordChange(c, domain.EntityTypeSource, source.ID, source.Name, domain.ChangeActionUpdate, old, source)
-	} else {
-		h.recordChange(c, domain.EntityTypeSource, source.ID, source.Name, domain.ChangeActionUpdate, nil, source)
-	}
+	h.recordChange(c, domain.EntityTypeSource, source.ID, source.Name, domain.ChangeActionUpdate, old, source)
 	c.JSON(http.StatusOK, source)
 }
 
@@ -82,10 +78,10 @@ func (h *Handler) DeleteSource(c *gin.Context) {
 		internalErr(c, err, "failed to delete source")
 		return
 	}
+	deletedName := ""
 	if old != nil {
-		h.recordChange(c, domain.EntityTypeSource, id, old.Name, domain.ChangeActionDelete, old, nil)
-	} else {
-		h.recordChange(c, domain.EntityTypeSource, id, "", domain.ChangeActionDelete, nil, nil)
+		deletedName = old.Name
 	}
+	h.recordChange(c, domain.EntityTypeSource, id, deletedName, domain.ChangeActionDelete, old, nil)
 	c.Status(http.StatusNoContent)
 }

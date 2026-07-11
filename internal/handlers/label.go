@@ -57,11 +57,7 @@ func (h *Handler) UpdateLabel(c *gin.Context) {
 		internalErr(c, err, "failed to update label")
 		return
 	}
-	if old != nil {
-		h.recordChange(c, domain.EntityTypeLabel, label.ID, label.Name, domain.ChangeActionUpdate, old, label)
-	} else {
-		h.recordChange(c, domain.EntityTypeLabel, label.ID, label.Name, domain.ChangeActionUpdate, nil, label)
-	}
+	h.recordChange(c, domain.EntityTypeLabel, label.ID, label.Name, domain.ChangeActionUpdate, old, label)
 	c.JSON(http.StatusOK, label)
 }
 
@@ -82,10 +78,10 @@ func (h *Handler) DeleteLabel(c *gin.Context) {
 		internalErr(c, err, "failed to delete label")
 		return
 	}
+	deletedName := ""
 	if old != nil {
-		h.recordChange(c, domain.EntityTypeLabel, id, old.Name, domain.ChangeActionDelete, old, nil)
-	} else {
-		h.recordChange(c, domain.EntityTypeLabel, id, "", domain.ChangeActionDelete, nil, nil)
+		deletedName = old.Name
 	}
+	h.recordChange(c, domain.EntityTypeLabel, id, deletedName, domain.ChangeActionDelete, old, nil)
 	c.Status(http.StatusNoContent)
 }

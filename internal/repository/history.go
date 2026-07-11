@@ -53,7 +53,16 @@ func marshalOrNil(v any) ([]byte, error) {
 	if v == nil {
 		return nil, nil
 	}
-	return json.Marshal(v)
+	b, err := json.Marshal(v)
+	if err != nil {
+		return nil, err
+	}
+	// A typed nil pointer inside `any` is not == nil but marshals to "null";
+	// store SQL NULL instead of a JSON null document.
+	if string(b) == "null" {
+		return nil, nil
+	}
+	return b, nil
 }
 
 // ListEditors returns the distinct editor usernames present in the change history.

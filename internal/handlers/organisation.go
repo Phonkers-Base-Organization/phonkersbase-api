@@ -123,11 +123,7 @@ func (h *Handler) UpdateOrganisation(c *gin.Context) {
 		internalErr(c, err, "failed to update organisation")
 		return
 	}
-	if old != nil {
-		h.recordChange(c, domain.EntityTypeOrganisation, org.ID, org.Name, domain.ChangeActionUpdate, old, org)
-	} else {
-		h.recordChange(c, domain.EntityTypeOrganisation, org.ID, org.Name, domain.ChangeActionUpdate, nil, org)
-	}
+	h.recordChange(c, domain.EntityTypeOrganisation, org.ID, org.Name, domain.ChangeActionUpdate, old, org)
 	c.JSON(http.StatusOK, org)
 }
 
@@ -148,10 +144,10 @@ func (h *Handler) DeleteOrganisation(c *gin.Context) {
 		internalErr(c, err, "failed to delete organisation")
 		return
 	}
+	deletedName := ""
 	if old != nil {
-		h.recordChange(c, domain.EntityTypeOrganisation, id, old.Name, domain.ChangeActionDelete, old, nil)
-	} else {
-		h.recordChange(c, domain.EntityTypeOrganisation, id, "", domain.ChangeActionDelete, nil, nil)
+		deletedName = old.Name
 	}
+	h.recordChange(c, domain.EntityTypeOrganisation, id, deletedName, domain.ChangeActionDelete, old, nil)
 	c.Status(http.StatusNoContent)
 }
