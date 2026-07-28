@@ -68,7 +68,7 @@ Returns a paginated list of artists. Public endpoint.
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `locale` | `uk` \| `en` | Language for description field (default: `uk`) |
-| `search` | string | Free-text search on name, description, and Spotify ID |
+| `search` | string | One term, or a comma-separated list — see [Search semantics](#search-semantics) |
 | `country` | string | Comma-separated ISO country codes to filter by (e.g. `UA,PL`) |
 | `label` | string | Comma-separated label names to filter by |
 | `offset` | int | Pagination offset (default: `0`) |
@@ -78,6 +78,37 @@ Returns a paginated list of artists. Public endpoint.
 | `by_listen` | `asc` \| `desc` | Sort by total label priority |
 
 If none of the sort params are given, results default to `total_priority DESC, updated_at DESC`. Any combination of sort params can be combined; `id ASC` is always appended as a final tiebreaker.
+
+#### Search semantics
+
+`search` is split on commas into terms (surrounding whitespace and empty terms are ignored), and
+**the number of terms decides how they are matched**:
+
+| Terms | Matching |
+|-------|----------|
+| exactly 1 | **Substring**, case-insensitive, against artist name, the localized description (`description_ua` or `description_en` per `locale`) and the Spotify link — for a search box where the user types a fragment |
+| 2 or more | **Exact**, case-insensitive, against artist name |
+
+In both modes a term that is a bare 22-character Spotify ID, an `open.spotify.com/artist/<id>` URL, or
+a `spotify:artist:<id>` URI is resolved to that artist's `spotify_id` rather than being matched as text.
+Terms are OR'd together, so the result is every artist matching any term.
+
+Multi-term search exists for bulk existence checks — a caller enumerating a tracklist already knows the
+exact names or IDs it is asking about, which is why exact matching is the right semantic there. It is also
+the only way for it to be fast: substring-matching 46 terms expands to 139 `ILIKE` predicates that Postgres
+resolves with a sequential scan (~500 ms and rising linearly with term count and table size), while exact
+matching is a single index lookup regardless of term count (~1.5 ms). It is more accurate, too: a short
+term like `Muse` substring-matches unrelated names such as `MYSTICMUSE`.
+
+Two consequences worth knowing:
+
+- **A comma always separates terms.** An artist whose name contains a comma cannot be searched as a single
+  multi-term entry, and a collaboration credit like `Artist A, Artist B` is treated as two separate lookups.
+- **Encode each term once.** Double-encoding (sending `%252C` for a comma inside a term) leaves a literal
+  `%2C` in the term, which will not match anything.
+
+Prefer one request with many terms over many single-term requests — the rate limit is per IP, and a
+50-term lookup costs roughly the same as a 1-term one.
 
 **Response**
 
@@ -96,7 +127,7 @@ If none of the sort params are given, results default to `total_priority DESC, u
       "countries": [
         {
           "code": "UA",
-          "source": { "id": "1", "name": "Spotify опис", "nameUk": "Spotify опис", "nameEn": "Spotify description" }
+          "sources": [{ "id": "1", "name": "Spotify опис", "nameEn": "Spotify description" }]
         }
       ],
       "listenLabels": [{ "id": "1", "name": "pride" }],
@@ -130,7 +161,7 @@ Returns all evidence sources (used to record how an artist's country was determi
 - `POST`/`PUT`/`DELETE` `/api/v1/source`, `/api/v1/source/:id` — evidence source CRUD (admin-only)
 - `GET`/`POST`/`PUT`/`DELETE` `/api/v1/artist/admin/all`, `/api/v1/artist`, `/api/v1/artist/:id` — artist CRUD and admin listing (protected)
 - `GET` `/api/v1/artist/stats` — artist counts/last-added stats (protected)
-- `GET`/`PATCH` `/api/v1/suggestion`, `/api/v1/suggestion/:id/status` — review submitted artist suggestions (protected)
+- `GET`/`DELETE` `/api/v1/suggestion`, `/api/v1/suggestion/:id` — review submitted artist suggestions (protected)
 - `GET`/`DELETE` `/api/v1/feedback`, `/api/v1/feedback/:id` — review submitted feedback (protected)
 - `/api/v1/auth/*` — login (public), logout/me (protected), user management (admin-only)
 
