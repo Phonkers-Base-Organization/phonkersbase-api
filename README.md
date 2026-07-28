@@ -155,6 +155,77 @@ Returns all labels ordered by priority (descending), then name. Public endpoint.
 
 Returns all evidence sources (used to record how an artist's country was determined), with bilingual (`nameUk`/`nameEn`) names. Public endpoint.
 
+### GET `/api/v1/organisation/all`
+
+Returns a paginated list of organisations (labels, distributors and cults tracked alongside artists),
+ordered by name. Public endpoint.
+
+**Query Parameters**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `type` | `Label` \| `Distributor` \| `Cult` | Filter by organisation type. Not validated — an unrecognized value simply matches nothing |
+| `search` | string | Case-insensitive substring match on the organisation name |
+| `offset` | int | Pagination offset (default: `0`) |
+| `limit` | int | Page size, 1–500 (default: `50`); out-of-range values return `400` |
+
+**Response**
+
+```json
+{
+  "items": [
+    {
+      "id": "1",
+      "name": "Example Records",
+      "link": "https://...",
+      "origin": "RU",
+      "description": "...",
+      "descriptionEn": "...",
+      "notes": "...",
+      "type": "Label",
+      "recommendation": "Не використовуй",
+      "createdAt": "...",
+      "updatedAt": "..."
+    }
+  ],
+  "info": { "limit": 50, "offset": 0, "total": 1, "totalPages": 1, "currentPage": 1 }
+}
+```
+
+Note that the Ukrainian description is serialized as `description` (not `descriptionUk`), matching the
+artist payload. `recommendation` is one of five fixed Ukrainian phrases, enforced by both a check
+constraint and the API: `Не використовуй`, `Не слухай це`, `Будь обережний`, `Можеш використовувати`,
+`Можеш слухати`.
+
+### GET `/api/v1/organisation/labels`, `/api/v1/organisation/distributors`, `/api/v1/organisation/cults`
+
+Type-specific shorthands for `/organisation/all?type=Label|Distributor|Cult`. Same `search`, `offset`
+and `limit` parameters, same response shape. Public endpoints.
+
+### Organisation CRUD (admin-only)
+
+`POST /api/v1/organisation`, `PUT /api/v1/organisation/:id`, `DELETE /api/v1/organisation/:id` — require
+the `ADMIN` role. `POST` returns `201` with the created organisation, `PUT` returns `200` with the updated
+one, `DELETE` returns `204`; a missing `:id` returns `404`.
+
+**Request body** (`POST` and `PUT`)
+
+```json
+{
+  "name": "Example Records",
+  "link": "https://...",
+  "origin": "RU",
+  "description": "...",
+  "descriptionEn": "...",
+  "notes": "...",
+  "type": "Label",
+  "recommendation": "Не використовуй"
+}
+```
+
+`name`, `origin`, `type` and `recommendation` are required; an unrecognized `recommendation` returns `400`.
+All three mutations are recorded in the change history.
+
 ### GET `/api/v1/history`
 
 Returns a paginated change log of admin mutations, newest first (`created_at DESC, id DESC`).
