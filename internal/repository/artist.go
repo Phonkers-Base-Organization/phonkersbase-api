@@ -652,49 +652,98 @@ func buildArtist(
 // URL/URI, e.g. as passed by external scrapers checking artist existence in bulk.
 var spotifyIDPattern = regexp.MustCompile(`^[0-9A-Za-z]{22}$`)
 
-// buildSearchCondition builds the OR-of-terms WHERE clause for a comma-separated artist
-// search string. Bare Spotify IDs are routed to a single indexed `spotify_id = ANY(...)`
-// lookup instead of the unindexed ILIKE substring scan, since an artist ID never legitimately
-// appears as a substring of its own name/description/link.
+// buildSearchCondition builds the WHERE clause for a comma-separated artist search string.
+// A lone term is matched as a substring — that is the UI search box, where the user types a
+// fragment of a name. Two or more terms are matched exactly instead, because a multi-term
+// search only ever comes from a caller enumerating identifiers it already knows (external
+// scrapers checking artist existence in bulk), and substring matching there is both wasteful
+// and inaccurate: it adds three ILIKE predicates per term, which the planner resolves as a
+// sequential scan costing ~10ms per term, and short terms match unrelated names by accident.
 func buildSearchCondition(search string, descCols []string, n *int, args *[]any) string {
-	var termClauses []string
-	var spotifyIDs []string
+	terms := splitSearchTerms(search)
+	switch len(terms) {
+	case 0:
+		return ""
+	case 1:
+		return buildPartialSearchCondition(terms[0], descCols, n, args)
+	default:
+		return buildExactSearchCondition(terms, n, args)
+	}
+}
+
+func splitSearchTerms(search string) []string {
+	var terms []string
 	for term := range strings.SplitSeq(search, ",") {
-		term = strings.TrimSpace(term)
-		if term == "" {
-			continue
+		if term = strings.TrimSpace(term); term != "" {
+			terms = append(terms, term)
 		}
+	}
+	return terms
+}
+
+// buildPartialSearchCondition matches one term as a substring of the name, the localized
+// description or the link. A bare Spotify ID skips the substring scan entirely, since an ID
+// never legitimately appears as a substring of its own name/description/link.
+func buildPartialSearchCondition(term string, descCols []string, n *int, args *[]any) string {
+	if spotifyIDPattern.MatchString(term) {
+		clause := fmt.Sprintf("(a.spotify_id = $%d)", *n)
+		*args = append(*args, term)
+		*n++
+		return clause
+	}
+
+	searchBase := term
+	if i := strings.Index(searchBase, "?"); i != -1 {
+		searchBase = searchBase[:i]
+	}
+	orClauses := []string{fmt.Sprintf("a.name ILIKE $%d", *n)}
+	for _, col := range descCols {
+		orClauses = append(orClauses, fmt.Sprintf("%s ILIKE $%d", col, *n))
+	}
+	orClauses = append(orClauses, fmt.Sprintf("SPLIT_PART(a.link, '?', 1) ILIKE $%d", *n))
+	*args = append(*args, "%"+escapeLikePattern(searchBase)+"%")
+	*n++
+	if spotifyID := extractSpotifyID(term); spotifyID != "" {
+		orClauses = append(orClauses, fmt.Sprintf("a.spotify_id = $%d", *n))
+		*args = append(*args, spotifyID)
+		*n++
+	}
+	return "(" + strings.Join(orClauses, " OR ") + ")"
+}
+
+// buildExactSearchCondition matches every term exactly. Bare IDs and Spotify links resolve to
+// spotify_id, everything else to a case-insensitive name equality served by the lower(name)
+// index; both collapse into a single array lookup regardless of how many terms were passed.
+// Terms are lowered here rather than in SQL so the comparison stays sargable.
+func buildExactSearchCondition(terms []string, n *int, args *[]any) string {
+	var names, spotifyIDs []string
+	for _, term := range terms {
 		if spotifyIDPattern.MatchString(term) {
 			spotifyIDs = append(spotifyIDs, term)
 			continue
 		}
-		searchBase := term
-		if i := strings.Index(searchBase, "?"); i != -1 {
-			searchBase = searchBase[:i]
-		}
-		orClauses := []string{fmt.Sprintf("a.name ILIKE $%d", *n)}
-		for _, col := range descCols {
-			orClauses = append(orClauses, fmt.Sprintf("%s ILIKE $%d", col, *n))
-		}
-		orClauses = append(orClauses, fmt.Sprintf("SPLIT_PART(a.link, '?', 1) ILIKE $%d", *n))
-		*args = append(*args, "%"+escapeLikePattern(searchBase)+"%")
-		*n++
 		if spotifyID := extractSpotifyID(term); spotifyID != "" {
-			orClauses = append(orClauses, fmt.Sprintf("a.spotify_id = $%d", *n))
-			*args = append(*args, spotifyID)
-			*n++
+			spotifyIDs = append(spotifyIDs, spotifyID)
+			continue
 		}
-		termClauses = append(termClauses, "("+strings.Join(orClauses, " OR ")+")")
+		names = append(names, strings.ToLower(term))
+	}
+
+	var clauses []string
+	if len(names) > 0 {
+		clauses = append(clauses, fmt.Sprintf("lower(a.name) = ANY($%d)", *n))
+		*args = append(*args, names)
+		*n++
 	}
 	if len(spotifyIDs) > 0 {
-		termClauses = append(termClauses, fmt.Sprintf("a.spotify_id = ANY($%d)", *n))
+		clauses = append(clauses, fmt.Sprintf("a.spotify_id = ANY($%d)", *n))
 		*args = append(*args, spotifyIDs)
 		*n++
 	}
-	if len(termClauses) == 0 {
+	if len(clauses) == 0 {
 		return ""
 	}
-	return "(" + strings.Join(termClauses, " OR ") + ")"
+	return "(" + strings.Join(clauses, " OR ") + ")"
 }
 
 func extractSpotifyID(s string) string {
