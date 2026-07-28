@@ -155,6 +155,59 @@ Returns all labels ordered by priority (descending), then name. Public endpoint.
 
 Returns all evidence sources (used to record how an artist's country was determined), with bilingual (`nameUk`/`nameEn`) names. Public endpoint.
 
+### GET `/api/v1/history`
+
+Returns a paginated change log of admin mutations, newest first (`created_at DESC, id DESC`).
+Requires authentication (any valid JWT).
+
+**Query Parameters**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `entityType` | `artist` \| `label` \| `source` \| `organisation` | Filter by entity type; any other value returns `400` |
+| `entityId` | string | Filter to a single entity's history |
+| `action` | `create` \| `update` \| `delete` | Filter by action; any other value returns `400` |
+| `editor` | string | Filter by editor username (exact) |
+| `search` | string | Case-insensitive substring match on the entity name recorded at the time of the change |
+| `offset` | int | Pagination offset (default: `0`) |
+| `limit` | int | Page size, 1–500 (default: `50`); out-of-range values return `400` |
+
+**Response**
+
+```json
+{
+  "items": [
+    {
+      "id": "1",
+      "entityType": "artist",
+      "entityId": "3414",
+      "entityName": "KAITO SHOMA",
+      "action": "update",
+      "editorId": "1",
+      "editorUsername": "admin",
+      "oldData": { "...": "entity snapshot before the change, null on create" },
+      "newData": { "...": "entity snapshot after the change, null on delete" },
+      "createdAt": "..."
+    }
+  ],
+  "info": { "limit": 50, "offset": 0, "total": 1, "totalPages": 1, "currentPage": 1 }
+}
+```
+
+Entries are written best-effort by the mutating handlers: a failed history insert is logged but never
+fails the mutation itself, so the log is an audit aid rather than a guaranteed-complete record.
+`entityName` is the name as it stood at the time of the change, which is why it is stored rather than
+joined — the entity may since have been renamed or deleted.
+
+### GET `/api/v1/history/editors`
+
+Returns the distinct editor usernames present in the change log, for populating a filter dropdown.
+Requires authentication (any valid JWT).
+
+```json
+{ "items": ["admin", "editor1"] }
+```
+
 ### Admin-only endpoints (require `ADMIN` role)
 
 - `POST`/`PUT`/`DELETE` `/api/v1/label`, `/api/v1/label/:id` — label CRUD (protected, any authenticated user)
