@@ -20,11 +20,18 @@ import (
 
 const meterName = "github.com/PhonkersBase/base-api2"
 
-// durationBucketBoundaries are second-scale buckets for sub-second API/DB
-// latencies. The OTel SDK's default boundaries (5, 10, 25, ...) are
-// unit-agnostic and tuned for millisecond-scale values, so they give almost
-// no resolution for the second-scale durations recorded here.
-var durationBucketBoundaries = []float64{0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1, 2.5, 5}
+// durationBucketBoundaries are second-scale buckets for API/DB latencies, weighted
+// towards the sub-millisecond end where this service actually operates: a served
+// request is ~0.5ms when the search misses and ~2ms when it hits, and an individual
+// query is ~0.2-1ms. Boundaries starting at 5ms — the SDK default, and what this
+// list used to start at — put all of that in the first bucket, so every quantile
+// reads as "fast" and an 8x regression from 0.5ms to 4ms stays invisible.
+//
+// The top of the range is kept coarse but present: bursts on a cold connection pool
+// reach tens of ms, and a pathological multi-term search can still take ~0.5s.
+var durationBucketBoundaries = []float64{
+	0.0001, 0.00025, 0.0005, 0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5,
+}
 
 var (
 	httpRequestDuration metric.Float64Histogram
