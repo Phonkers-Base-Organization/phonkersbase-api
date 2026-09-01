@@ -13,9 +13,10 @@ import (
 )
 
 // A sync walks the roster 50 collaborators at a time, paced under muso's 300/min
-// ceiling, so a 4000-artist label costs roughly 20 seconds. The cap only bounds
-// a pathological roster.
-const organisationMusoSyncTimeout = 5 * time.Minute
+// ceiling. A 4000-artist label costs roughly 20 seconds, but the largest
+// distributors run to 45000 collaborators, or some 900 paced requests, so the
+// cap has to clear ten minutes of walking to reach them at all.
+const organisationMusoSyncTimeout = 20 * time.Minute
 
 func (h *Handler) GetLabelOrganisations(c *gin.Context) {
 	h.getOrganisationsByType(c, "Label")

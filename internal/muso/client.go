@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -16,10 +17,12 @@ import (
 const (
 	defaultBaseURL     = "https://api.platform.muso.ai/v1"
 	collaboratorsLimit = 50 // Muso rejects collaborator page sizes above 50.
-	// Muso allows 300 requests a minute; pace every call rather than racing the ceiling.
-	requestInterval       = time.Minute / 300
+	// Muso allows 300 requests a minute. Pacing at exactly that races the ceiling
+	// and the longest rosters get rejected part way through, so leave headroom.
+	requestInterval       = time.Minute / 280
 	lowRateLimitRemaining = 5
 	requestTimeout        = 30 * time.Second
+	errorBodyLimit        = 512
 )
 
 var (
@@ -142,7 +145,10 @@ func (c *Client) do(req *http.Request, result any) error {
 		return ErrRateLimited
 	}
 	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
-		return fmt.Errorf("muso API returned status %d", response.StatusCode)
+		// Carry muso's own explanation. A bare status says nothing about which of
+		// the request's parameters it objected to.
+		detail, _ := io.ReadAll(io.LimitReader(response.Body, errorBodyLimit))
+		return fmt.Errorf("muso API returned status %d: %s", response.StatusCode, bytes.TrimSpace(detail))
 	}
 	if err := json.NewDecoder(response.Body).Decode(result); err != nil {
 		return fmt.Errorf("decode muso response: %w", err)

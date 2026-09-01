@@ -189,7 +189,9 @@ func (r *OrganisationMusoRepo) DistributionsFor(ctx context.Context, orgIDs []in
 		FROM organisation_muso om
 		LEFT JOIN organisation_artists oa ON oa.organisation_id = om.organisation_id
 		LEFT JOIN primary_countries pc ON pc.artist_id = oa.artist_id
-		WHERE om.organisation_id = ANY($1)
+		-- An empty roster is nothing to chart, so it reads as absent rather than as a
+		-- distribution of zeroes the page would draw as a blank circle.
+		WHERE om.organisation_id = ANY($1) AND om.roster_size > 0
 		GROUP BY om.organisation_id, om.roster_size, om.last_synced_at
 	`, orgIDs)
 	if err != nil {

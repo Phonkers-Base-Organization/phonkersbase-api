@@ -15,6 +15,10 @@ import (
 // so only a larger move means the organisation actually signed or dropped someone.
 const collaboratorCountDrift = 2
 
+// Long enough to write one row, short enough that a wedged database cannot hold
+// the sweep open.
+const recordFailureTimeout = 10 * time.Second
+
 const (
 	statusPending  = "pending"
 	statusOK       = "ok"
@@ -154,9 +158,12 @@ func (s *Syncer) collectRoster(ctx context.Context, profileID string) (map[int]s
 		if offset == 0 {
 			rosterSize = page.TotalCount
 		}
-		// A page that advances nothing would loop forever against a total we never reach.
+		// muso's totalCount overstates some rosters by a collaborator or two, and a
+		// label can have none at all, so an empty page ends the walk rather than
+		// failing it. It also stops the loop advancing nothing against a total it
+		// would never reach.
 		if len(page.Items) == 0 {
-			return nil, 0, fmt.Errorf("muso returned an empty collaborator page at offset %d of %d", offset, page.TotalCount)
+			return artistProfiles, rosterSize, nil
 		}
 
 		profilesBySpotifyID := make(map[string]string, len(page.Items))
@@ -190,6 +197,11 @@ func (s *Syncer) collectRoster(ctx context.Context, profileID string) (map[int]s
 // recordFailure stores why the sync stopped. A store error here is logged and dropped:
 // the muso error is the one the caller has to act on.
 func (s *Syncer) recordFailure(ctx context.Context, state *domain.OrganisationMuso, cause error) {
+	// The usual cause is the sync context expiring, which would take this write
+	// down with it and leave the row claiming the last attempt still stands.
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), recordFailureTimeout)
+	defer cancel()
+
 	now := time.Now().UTC()
 	state.LastCheckedAt = &now
 
