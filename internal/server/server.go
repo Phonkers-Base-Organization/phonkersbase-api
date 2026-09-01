@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -182,12 +183,28 @@ func Run() error {
 		}
 	}()
 
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, os.Interrupt)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	var sweepDone chan struct{}
+	if musoSyncer == nil {
+		log.Info().Msg("muso organisation sweep disabled")
+	} else {
+		sweepDone = make(chan struct{})
+		go func() {
+			defer close(sweepDone)
+			runMusoSweep(ctx, musoSyncer, organisationMusoRepo)
+		}()
+		// Every exit below waits for the sweep to acknowledge cancellation.
+		defer func() {
+			stop()
+			<-sweepDone
+		}()
+	}
 
 	select {
-	case sig := <-sigCh:
-		log.Info().Msgf("received signal: %s, shutting down server", sig)
+	case <-ctx.Done():
+		log.Info().Msg("received shutdown signal, shutting down server")
 	case err := <-errCh:
 		return err
 	}
