@@ -32,6 +32,7 @@ type Handler struct {
 	feedbacks     *repository.FeedbackRepo
 	organisations *repository.OrganisationRepo
 	changeHistory *repository.ChangeHistoryRepo
+	musoStates    *repository.OrganisationMusoRepo
 	musoSyncer    *muso.Syncer
 	jwtSecret     string
 }
@@ -45,6 +46,7 @@ func NewHandler(
 	feedbacks *repository.FeedbackRepo,
 	organisations *repository.OrganisationRepo,
 	changeHistory *repository.ChangeHistoryRepo,
+	musoStates *repository.OrganisationMusoRepo,
 	musoSyncer *muso.Syncer,
 	jwtSecret string,
 ) *Handler {
@@ -57,6 +59,7 @@ func NewHandler(
 		feedbacks:     feedbacks,
 		organisations: organisations,
 		changeHistory: changeHistory,
+		musoStates:    musoStates,
 		musoSyncer:    musoSyncer,
 		jwtSecret:     jwtSecret,
 	}

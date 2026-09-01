@@ -72,6 +72,42 @@ func (r *OrganisationMusoRepo) GetOrganisationMuso(ctx context.Context, organisa
 	return &state, nil
 }
 
+// ListStates returns every stored muso sync state, for the admin panel's view of
+// what the last sweep managed to fetch.
+func (r *OrganisationMusoRepo) ListStates(ctx context.Context) ([]domain.OrganisationMuso, error) {
+	rows, err := r.db.Query(ctx, `-- name: organisation_muso.list_states
+		SELECT id, organisation_id, muso_profile_id, collaborators_count, credit_count,
+		       roster_size, last_checked_at, last_synced_at, sync_status, sync_error,
+		       created_at, updated_at
+		FROM organisation_muso
+		ORDER BY organisation_id
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	states := []domain.OrganisationMuso{}
+	for rows.Next() {
+		var state domain.OrganisationMuso
+		err := rows.Scan(
+			&state.ID, &state.OrganisationID, &state.MusoProfileID,
+			&state.CollaboratorsCount, &state.CreditCount, &state.RosterSize,
+			&state.LastCheckedAt, &state.LastSyncedAt, &state.SyncStatus,
+			&state.SyncError, &state.CreatedAt, &state.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		states = append(states, state)
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, err
+	}
+	return states, nil
+}
+
 func (r *OrganisationMusoRepo) UpsertOrganisationMuso(ctx context.Context, state *domain.OrganisationMuso) error {
 	return r.db.QueryRow(ctx, `-- name: organisation_muso.upsert
 		INSERT INTO organisation_muso (

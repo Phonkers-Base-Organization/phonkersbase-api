@@ -79,6 +79,7 @@ func Run() error {
 		repository.NewFeedbackRepo(dbpool),
 		organisationRepo,
 		repository.NewChangeHistoryRepo(dbpool),
+		organisationMusoRepo,
 		musoSyncer,
 		cfg.JWTSecret,
 	)
@@ -163,6 +164,7 @@ func Run() error {
 		admin.PUT("/organisation/:id", h.UpdateOrganisation)
 		admin.DELETE("/organisation/:id", h.DeleteOrganisation)
 		admin.POST("/organisation/:id/muso-sync", h.SyncOrganisationMuso)
+		admin.GET("/organisation/muso-status", h.GetOrganisationMusoStates)
 
 	}
 

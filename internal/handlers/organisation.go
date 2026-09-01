@@ -117,6 +117,18 @@ func (h *Handler) CreateOrganisation(c *gin.Context) {
 	c.JSON(http.StatusCreated, org)
 }
 
+// GetOrganisationMusoStates backs the admin panel's view of what the last sync
+// fetched. sync_status and sync_error stay off the public organisation payload,
+// which carries only the distribution the page draws.
+func (h *Handler) GetOrganisationMusoStates(c *gin.Context) {
+	states, err := h.musoStates.ListStates(c.Request.Context())
+	if err != nil {
+		internalErr(c, err, "failed to list organisation muso states")
+		return
+	}
+	c.JSON(http.StatusOK, states)
+}
+
 func (h *Handler) SyncOrganisationMuso(c *gin.Context) {
 	if h.musoSyncer == nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"message": "muso sync is unavailable"})
