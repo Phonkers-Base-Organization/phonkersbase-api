@@ -162,17 +162,44 @@ func (r OrgRecommendation) Valid() bool {
 }
 
 type Organisation struct {
-	ID             string            `json:"id"`
-	Name           string            `json:"name"`
-	Link           *string           `json:"link"`
-	Origin         string            `json:"origin"`
-	DescriptionUk  *string           `json:"description"`
-	DescriptionEn  *string           `json:"descriptionEn"`
-	Notes          *string           `json:"notes"`
-	Type           string            `json:"type"`
-	Recommendation OrgRecommendation `json:"recommendation"`
-	CreatedAt      time.Time         `json:"createdAt"`
-	UpdatedAt      time.Time         `json:"updatedAt"`
+	ID                  string               `json:"id"`
+	Name                string               `json:"name"`
+	Link                *string              `json:"link"`
+	Origin              string               `json:"origin"`
+	DescriptionUk       *string              `json:"description"`
+	DescriptionEn       *string              `json:"descriptionEn"`
+	Notes               *string              `json:"notes"`
+	Type                string               `json:"type"`
+	Recommendation      OrgRecommendation    `json:"recommendation"`
+	CountryDistribution *CountryDistribution `json:"countryDistribution"`
+	CreatedAt           time.Time            `json:"createdAt"`
+	UpdatedAt           time.Time            `json:"updatedAt"`
+}
+
+type CountryDistribution struct {
+	Russia     int        `json:"russia"`
+	Belarus    int        `json:"belarus"`
+	Ukraine    int        `json:"ukraine"`
+	Other      int        `json:"other"`
+	Unknown    int        `json:"unknown"`
+	Matched    int        `json:"matched"`
+	RosterSize int        `json:"rosterSize"`
+	SyncedAt   *time.Time `json:"syncedAt"`
+}
+
+type OrganisationMuso struct {
+	ID                 int64      `json:"id"`
+	OrganisationID     int        `json:"organisationId"`
+	MusoProfileID      string     `json:"musoProfileId"`
+	CollaboratorsCount int        `json:"collaboratorsCount"`
+	CreditCount        int        `json:"creditCount"`
+	RosterSize         int        `json:"rosterSize"`
+	LastCheckedAt      *time.Time `json:"lastCheckedAt"`
+	LastSyncedAt       *time.Time `json:"lastSyncedAt"`
+	SyncStatus         string     `json:"syncStatus"`
+	SyncError          *string    `json:"syncError"`
+	CreatedAt          time.Time  `json:"createdAt"`
+	UpdatedAt          time.Time  `json:"updatedAt"`
 }
 
 type PaginatedOrganisations struct {

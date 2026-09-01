@@ -15,6 +15,7 @@ type Config struct {
 	Port                 string `validate:"required,numeric"`
 	OTELServiceName      string `validate:"required"`
 	OTELExporterEndpoint string `validate:"omitempty,uri"`
+	MusoAPIKey           string `validate:"omitempty"`
 }
 
 func Load() (*Config, error) {
@@ -25,6 +26,7 @@ func Load() (*Config, error) {
 		Port:                 envOrDefault("PORT", "8080"),
 		OTELServiceName:      envOrDefault("OTEL_SERVICE_NAME", "pb-api2"),
 		OTELExporterEndpoint: os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
+		MusoAPIKey:           os.Getenv("MUSO_AI_KEY"),
 	}
 
 	validate := validator.New()
