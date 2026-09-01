@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/PhonkersBase/base-api2/internal/muso"
 	"github.com/PhonkersBase/base-api2/internal/repository"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
@@ -31,6 +32,7 @@ type Handler struct {
 	feedbacks     *repository.FeedbackRepo
 	organisations *repository.OrganisationRepo
 	changeHistory *repository.ChangeHistoryRepo
+	musoSyncer    *muso.Syncer
 	jwtSecret     string
 }
 
@@ -43,6 +45,7 @@ func NewHandler(
 	feedbacks *repository.FeedbackRepo,
 	organisations *repository.OrganisationRepo,
 	changeHistory *repository.ChangeHistoryRepo,
+	musoSyncer *muso.Syncer,
 	jwtSecret string,
 ) *Handler {
 	return &Handler{
@@ -54,6 +57,7 @@ func NewHandler(
 		feedbacks:     feedbacks,
 		organisations: organisations,
 		changeHistory: changeHistory,
+		musoSyncer:    musoSyncer,
 		jwtSecret:     jwtSecret,
 	}
 }

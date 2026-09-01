@@ -1,14 +1,21 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/PhonkersBase/base-api2/internal/domain"
 	"github.com/PhonkersBase/base-api2/internal/repository"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 )
+
+// A sync walks the roster 50 collaborators at a time, paced under muso's 300/min
+// ceiling, so a 4000-artist label costs roughly 20 seconds. The cap only bounds
+// a pathological roster.
+const organisationMusoSyncTimeout = 5 * time.Minute
 
 func (h *Handler) GetLabelOrganisations(c *gin.Context) {
 	h.getOrganisationsByType(c, "Label")
@@ -93,7 +100,62 @@ func (h *Handler) CreateOrganisation(c *gin.Context) {
 		return
 	}
 	h.recordChange(c, domain.EntityTypeOrganisation, org.ID, org.Name, domain.ChangeActionCreate, nil, org)
+	organisationID, err := strconv.Atoi(org.ID)
+	if h.musoSyncer != nil && err == nil {
+		// The request context dies with the response, so the new organisation's first
+		// sync runs on its own deadline rather than blocking the create.
+		go func(id int, name string) {
+			ctx, cancel := context.WithTimeout(context.Background(), organisationMusoSyncTimeout)
+			defer cancel()
+			syncErr := h.musoSyncer.SyncOrganisation(ctx, id, name)
+			if syncErr != nil {
+				log.Error().Err(syncErr).Int("organisation_id", id).Msg("failed to sync new organisation with muso")
+			}
+		}(organisationID, org.Name)
+	}
 	c.JSON(http.StatusCreated, org)
+}
+
+func (h *Handler) SyncOrganisationMuso(c *gin.Context) {
+	if h.musoSyncer == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"message": "muso sync is unavailable"})
+		return
+	}
+
+	id := c.Param("id")
+	org, err := h.organisations.GetByID(c.Request.Context(), id)
+	if err != nil {
+		if err == repository.ErrNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"message": "organisation not found"})
+			return
+		}
+		internalErr(c, err, "failed to get organisation for muso sync")
+		return
+	}
+
+	organisationID, err := strconv.Atoi(org.ID)
+	if err != nil {
+		internalErr(c, err, "invalid organisation id from database")
+		return
+	}
+	// The router caps a request at 30s, which a full roster walk can outlast. Detaching
+	// from that cancellation lets the sync finish and commit even when the client is
+	// already gone, so no run is wasted halfway through.
+	syncCtx, cancel := context.WithTimeout(context.WithoutCancel(c.Request.Context()), organisationMusoSyncTimeout)
+	defer cancel()
+	err = h.musoSyncer.SyncOrganisation(syncCtx, organisationID, org.Name)
+	if err != nil {
+		internalErr(c, err, "failed to sync organisation with muso")
+		return
+	}
+
+	refreshed, err := h.organisations.GetByID(syncCtx, id)
+	if err != nil {
+		internalErr(c, err, "failed to load organisation distribution after muso sync")
+		return
+	}
+	h.recordChange(c, domain.EntityTypeOrganisation, org.ID, org.Name, domain.ChangeActionMusoSync, org.CountryDistribution, refreshed.CountryDistribution)
+	c.JSON(http.StatusOK, refreshed.CountryDistribution)
 }
 
 func (h *Handler) UpdateOrganisation(c *gin.Context) {

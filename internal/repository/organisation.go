@@ -12,11 +12,12 @@ import (
 )
 
 type OrganisationRepo struct {
-	db *pgxpool.Pool
+	db       *pgxpool.Pool
+	musoRepo *OrganisationMusoRepo
 }
 
-func NewOrganisationRepo(db *pgxpool.Pool) *OrganisationRepo {
-	return &OrganisationRepo{db: db}
+func NewOrganisationRepo(db *pgxpool.Pool, musoRepo *OrganisationMusoRepo) *OrganisationRepo {
+	return &OrganisationRepo{db: db, musoRepo: musoRepo}
 }
 
 func (r *OrganisationRepo) GetAll(ctx context.Context, params domain.ListOrganisationsParams) (*domain.PaginatedOrganisations, error) {
@@ -54,6 +55,7 @@ func (r *OrganisationRepo) GetAll(ctx context.Context, params domain.ListOrganis
 	defer rows.Close()
 
 	items := []domain.Organisation{}
+	orgIDs := []int{}
 	for rows.Next() {
 		var (
 			id int
@@ -64,9 +66,20 @@ func (r *OrganisationRepo) GetAll(ctx context.Context, params domain.ListOrganis
 		}
 		o.ID = strconv.Itoa(id)
 		items = append(items, o)
+		orgIDs = append(orgIDs, id)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
+	}
+
+	distributions, err := r.musoRepo.DistributionsFor(ctx, orgIDs)
+	if err != nil {
+		return nil, err
+	}
+	for i, id := range orgIDs {
+		if distribution, ok := distributions[id]; ok {
+			items[i].CountryDistribution = &distribution
+		}
 	}
 
 	totalPages := total / limit
@@ -105,6 +118,13 @@ func (r *OrganisationRepo) GetByID(ctx context.Context, id string) (*domain.Orga
 		return nil, err
 	}
 	o.ID = strconv.Itoa(oid)
+	distributions, err := r.musoRepo.DistributionsFor(ctx, []int{oid})
+	if err != nil {
+		return nil, err
+	}
+	if distribution, ok := distributions[oid]; ok {
+		o.CountryDistribution = &distribution
+	}
 	return &o, nil
 }
 

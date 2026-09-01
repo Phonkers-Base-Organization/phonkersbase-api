@@ -20,6 +20,7 @@ import (
 	"github.com/PhonkersBase/base-api2/internal/metrics"
 	"github.com/PhonkersBase/base-api2/internal/middlewares"
 	"github.com/PhonkersBase/base-api2/internal/migrations"
+	"github.com/PhonkersBase/base-api2/internal/muso"
 	"github.com/PhonkersBase/base-api2/internal/repository"
 )
 
@@ -61,6 +62,13 @@ func Run() error {
 	}
 	log.Info().Msg("database migrations applied")
 
+	organisationMusoRepo := repository.NewOrganisationMusoRepo(dbpool)
+	organisationRepo := repository.NewOrganisationRepo(dbpool, organisationMusoRepo)
+	var musoSyncer *muso.Syncer
+	if cfg.MusoAPIKey != "" {
+		musoSyncer = muso.NewSyncer(muso.New(cfg.MusoAPIKey, nil), organisationMusoRepo)
+	}
+
 	h := handlers.NewHandler(
 		repository.NewArtistRepo(dbpool),
 		repository.NewLabelRepo(dbpool),
@@ -68,8 +76,9 @@ func Run() error {
 		repository.NewUserRepo(dbpool),
 		repository.NewSuggestionRepo(dbpool),
 		repository.NewFeedbackRepo(dbpool),
-		repository.NewOrganisationRepo(dbpool),
+		organisationRepo,
 		repository.NewChangeHistoryRepo(dbpool),
+		musoSyncer,
 		cfg.JWTSecret,
 	)
 
@@ -125,7 +134,6 @@ func Run() error {
 		protected.PUT("/label/:id", h.UpdateLabel)
 		protected.DELETE("/label/:id", h.DeleteLabel)
 
-
 		protected.GET("/suggestion", h.GetSuggestions)
 		protected.DELETE("/suggestion/:id", h.DeleteSuggestion)
 
@@ -153,6 +161,7 @@ func Run() error {
 		admin.POST("/organisation", h.CreateOrganisation)
 		admin.PUT("/organisation/:id", h.UpdateOrganisation)
 		admin.DELETE("/organisation/:id", h.DeleteOrganisation)
+		admin.POST("/organisation/:id/muso-sync", h.SyncOrganisationMuso)
 
 	}
 
