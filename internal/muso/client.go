@@ -44,9 +44,25 @@ type CollaboratorPage struct {
 
 // Country is intentionally omitted: Muso rarely supplies it, so country data comes from pb's curated records.
 type Collaborator struct {
-	ID        string `json:"id"`
-	Name      string `json:"name"`
-	SpotifyID string `json:"spotifyId"`
+	ID            string   `json:"id"`
+	Name          string   `json:"name"`
+	SpotifyID     string   `json:"spotifyId"`
+	CommonCredits []string `json:"commonCredits"`
+}
+
+const artistCredit = "Artist"
+
+// IsArtist reports whether muso credits this collaborator as a performing artist.
+// The collaborators endpoint returns everyone credited on a label's releases,
+// songwriters, producers and engineers included; the chart asks only about the
+// artists releasing there.
+func (c Collaborator) IsArtist() bool {
+	for _, credit := range c.CommonCredits {
+		if credit == artistCredit {
+			return true
+		}
+	}
+	return false
 }
 
 type Client struct {

@@ -144,11 +144,18 @@ func (s *Syncer) CheckOrganisation(ctx context.Context, orgID int, name string) 
 	return warranted, nil
 }
 
-// collectRoster pages through every collaborator and returns the pb artists among them,
-// keyed by artist id, alongside the roster size muso reports.
+// collectRoster pages through every collaborator and returns the pb artists among
+// them, keyed by artist id, alongside the number of artists muso credits on the
+// organisation.
+//
+// The roster counts only collaborators credited as Artist. Muso's collaborators
+// are everyone on the label's releases, so counting them all put producers,
+// engineers and songwriters into a chart that asks which countries the artists
+// releasing here come from, and left it 95% unknown.
 func (s *Syncer) collectRoster(ctx context.Context, profileID string) (map[int]string, int, error) {
 	artistProfiles := make(map[int]string)
-	rosterSize := 0
+	collaboratorCount := 0
+	artistCount := 0
 
 	for offset := 0; ; {
 		page, err := s.client.Collaborators(ctx, profileID, offset)
@@ -156,19 +163,24 @@ func (s *Syncer) collectRoster(ctx context.Context, profileID string) (map[int]s
 			return nil, 0, fmt.Errorf("get collaborators: %w", err)
 		}
 		if offset == 0 {
-			rosterSize = page.TotalCount
+			collaboratorCount = page.TotalCount
 		}
 		// muso's totalCount overstates some rosters by a collaborator or two, and a
 		// label can have none at all, so an empty page ends the walk rather than
 		// failing it. It also stops the loop advancing nothing against a total it
 		// would never reach.
 		if len(page.Items) == 0 {
-			return artistProfiles, rosterSize, nil
+			return artistProfiles, artistCount, nil
 		}
 
 		profilesBySpotifyID := make(map[string]string, len(page.Items))
 		spotifyIDs := make([]string, 0, len(page.Items))
 		for _, collaborator := range page.Items {
+			if !collaborator.IsArtist() {
+				continue
+			}
+			artistCount++
+
 			_, seen := profilesBySpotifyID[collaborator.SpotifyID]
 			if collaborator.SpotifyID == "" || seen {
 				continue
@@ -188,8 +200,8 @@ func (s *Syncer) collectRoster(ctx context.Context, profileID string) (map[int]s
 		}
 
 		offset += len(page.Items)
-		if offset >= rosterSize {
-			return artistProfiles, rosterSize, nil
+		if offset >= collaboratorCount {
+			return artistProfiles, artistCount, nil
 		}
 	}
 }
