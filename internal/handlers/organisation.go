@@ -167,8 +167,8 @@ func (h *Handler) SyncOrganisationMuso(c *gin.Context) {
 		internalErr(c, err, "failed to load organisation distribution after muso sync")
 		return
 	}
-	h.recordChange(c, domain.EntityTypeOrganisation, org.ID, org.Name, domain.ChangeActionMusoSync, org.CountryDistribution, refreshed.CountryDistribution)
-	c.JSON(http.StatusOK, refreshed.CountryDistribution)
+	h.recordChange(c, domain.EntityTypeOrganisation, org.ID, org.Name, domain.ChangeActionMusoSync, org.LabelDistribution, refreshed.LabelDistribution)
+	c.JSON(http.StatusOK, refreshed.LabelDistribution)
 }
 
 func (h *Handler) UpdateOrganisation(c *gin.Context) {

@@ -162,25 +162,28 @@ func (r OrgRecommendation) Valid() bool {
 }
 
 type Organisation struct {
-	ID                  string               `json:"id"`
-	Name                string               `json:"name"`
-	Link                *string              `json:"link"`
-	Origin              string               `json:"origin"`
-	DescriptionUk       *string              `json:"description"`
-	DescriptionEn       *string              `json:"descriptionEn"`
-	Notes               *string              `json:"notes"`
-	Type                string               `json:"type"`
-	Recommendation      OrgRecommendation    `json:"recommendation"`
-	CountryDistribution *CountryDistribution `json:"countryDistribution"`
-	CreatedAt           time.Time            `json:"createdAt"`
-	UpdatedAt           time.Time            `json:"updatedAt"`
+	ID                string             `json:"id"`
+	Name              string             `json:"name"`
+	Link              *string            `json:"link"`
+	Origin            string             `json:"origin"`
+	DescriptionUk     *string            `json:"description"`
+	DescriptionEn     *string            `json:"descriptionEn"`
+	Notes             *string            `json:"notes"`
+	Type              string             `json:"type"`
+	Recommendation    OrgRecommendation  `json:"recommendation"`
+	LabelDistribution *LabelDistribution `json:"labelDistribution"`
+	CreatedAt         time.Time          `json:"createdAt"`
+	UpdatedAt         time.Time          `json:"updatedAt"`
 }
 
-type CountryDistribution struct {
-	Russia     int        `json:"russia"`
-	Belarus    int        `json:"belarus"`
-	Ukraine    int        `json:"ukraine"`
-	Other      int        `json:"other"`
+// LabelDistribution splits the artists of an organisation's roster that pb holds
+// by listen label. An artist counts once, under its most severe label, so the four
+// buckets sum to Matched. RosterSize is everyone muso credits on the organisation;
+// most of them are not in pb, which is why the two numbers travel together.
+type LabelDistribution struct {
+	Blocked    int        `json:"blocked"`
+	Warning    int        `json:"warning"`
+	Approved   int        `json:"approved"`
 	Unknown    int        `json:"unknown"`
 	Matched    int        `json:"matched"`
 	RosterSize int        `json:"rosterSize"`

@@ -196,40 +196,57 @@ func (r *OrganisationMusoRepo) ReplaceOrganisationArtists(ctx context.Context, o
 	return tx.Commit(ctx)
 }
 
-func (r *OrganisationMusoRepo) DistributionsFor(ctx context.Context, orgIDs []int) (map[int]domain.CountryDistribution, error) {
-	distributions := make(map[int]domain.CountryDistribution, len(orgIDs))
+// Listen labels as stored in labels.name. pride and base only ever accompany
+// approved, so the chart folds all three into one bucket.
+const (
+	listenLabelBlocked = "blocked"
+	listenLabelWarning = "warning"
+)
+
+var listenLabelsApproved = []string{"approved", "pride", "base"}
+
+// DistributionsFor returns the listen-label split of each organisation's roster
+// artists that exist in pb, for a whole page of organisations in one query.
+func (r *OrganisationMusoRepo) DistributionsFor(ctx context.Context, orgIDs []int) (map[int]domain.LabelDistribution, error) {
+	distributions := make(map[int]domain.LabelDistribution, len(orgIDs))
 	if len(orgIDs) == 0 {
 		return distributions, nil
 	}
 
 	rows, err := r.db.Query(ctx, `-- name: organisation_muso.distributions_for
-		WITH primary_countries AS (
-			-- An artist's primary country is its lowest position, then code for deterministic ties.
-			SELECT DISTINCT ON (ac.artist_id) ac.artist_id, ac.code
-			FROM artist_countries ac
-			JOIN organisation_artists oa_filter ON oa_filter.artist_id = ac.artist_id
-			WHERE oa_filter.organisation_id = ANY($1)
-			ORDER BY ac.artist_id, ac.position, ac.code
+		WITH roster AS (
+			SELECT
+				oa.organisation_id,
+				oa.artist_id,
+				COALESCE(bool_or(l.name = $2), false)      AS blocked,
+				COALESCE(bool_or(l.name = $3), false)      AS warning,
+				COALESCE(bool_or(l.name = ANY($4)), false) AS approved
+			FROM organisation_artists oa
+			LEFT JOIN artist_labels al ON al.artist_id = oa.artist_id
+			LEFT JOIN labels l ON l.id = al.label_id
+			WHERE oa.organisation_id = ANY($1)
+			GROUP BY oa.organisation_id, oa.artist_id
 		)
 		SELECT
 			om.organisation_id,
-			COUNT(*) FILTER (WHERE pc.code = 'RU'),
-			COUNT(*) FILTER (WHERE pc.code = 'BY'),
-			COUNT(*) FILTER (WHERE pc.code = 'UA'),
-			COUNT(*) FILTER (WHERE pc.code IS NOT NULL AND pc.code NOT IN ('RU', 'BY', 'UA')),
-			COUNT(pc.artist_id),
+			-- An artist can carry several labels (approved+warning is common), so each
+			-- one lands in the most severe bucket it qualifies for: blocked, then
+			-- warning, then approved. Whatever is left, unlabelled artists included,
+			-- is unknown.
+			COUNT(*) FILTER (WHERE ro.blocked),
+			COUNT(*) FILTER (WHERE ro.warning AND NOT ro.blocked),
+			COUNT(*) FILTER (WHERE ro.approved AND NOT ro.warning AND NOT ro.blocked),
+			COUNT(*) FILTER (WHERE ro.artist_id IS NOT NULL AND NOT ro.approved AND NOT ro.warning AND NOT ro.blocked),
+			COUNT(ro.artist_id),
 			om.roster_size,
-			-- A roster can shrink between syncs, so unknown must never become negative.
-			GREATEST(om.roster_size - COUNT(pc.artist_id), 0),
 			om.last_synced_at
 		FROM organisation_muso om
-		LEFT JOIN organisation_artists oa ON oa.organisation_id = om.organisation_id
-		LEFT JOIN primary_countries pc ON pc.artist_id = oa.artist_id
+		LEFT JOIN roster ro ON ro.organisation_id = om.organisation_id
 		-- An empty roster is nothing to chart, so it reads as absent rather than as a
-		-- distribution of zeroes the page would draw as a blank circle.
+		-- distribution of zeroes.
 		WHERE om.organisation_id = ANY($1) AND om.roster_size > 0
 		GROUP BY om.organisation_id, om.roster_size, om.last_synced_at
-	`, orgIDs)
+	`, orgIDs, listenLabelBlocked, listenLabelWarning, listenLabelsApproved)
 	if err != nil {
 		return nil, err
 	}
@@ -237,23 +254,24 @@ func (r *OrganisationMusoRepo) DistributionsFor(ctx context.Context, orgIDs []in
 
 	for rows.Next() {
 		var organisationID int
-		var distribution domain.CountryDistribution
-		if err := rows.Scan(
+		var distribution domain.LabelDistribution
+		err := rows.Scan(
 			&organisationID,
-			&distribution.Russia,
-			&distribution.Belarus,
-			&distribution.Ukraine,
-			&distribution.Other,
+			&distribution.Blocked,
+			&distribution.Warning,
+			&distribution.Approved,
+			&distribution.Unknown,
 			&distribution.Matched,
 			&distribution.RosterSize,
-			&distribution.Unknown,
 			&distribution.SyncedAt,
-		); err != nil {
+		)
+		if err != nil {
 			return nil, err
 		}
 		distributions[organisationID] = distribution
 	}
-	if err := rows.Err(); err != nil {
+	err = rows.Err()
+	if err != nil {
 		return nil, err
 	}
 	return distributions, nil

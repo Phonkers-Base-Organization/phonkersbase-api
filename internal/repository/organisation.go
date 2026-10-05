@@ -78,7 +78,7 @@ func (r *OrganisationRepo) GetAll(ctx context.Context, params domain.ListOrganis
 	}
 	for i, id := range orgIDs {
 		if distribution, ok := distributions[id]; ok {
-			items[i].CountryDistribution = &distribution
+			items[i].LabelDistribution = &distribution
 		}
 	}
 
@@ -123,7 +123,7 @@ func (r *OrganisationRepo) GetByID(ctx context.Context, id string) (*domain.Orga
 		return nil, err
 	}
 	if distribution, ok := distributions[oid]; ok {
-		o.CountryDistribution = &distribution
+		o.LabelDistribution = &distribution
 	}
 	return &o, nil
 }
