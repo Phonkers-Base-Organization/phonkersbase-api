@@ -169,11 +169,11 @@ func (h *Handler) SyncOrganisationMuso(c *gin.Context) {
 
 	refreshed, err := h.organisations.GetByID(syncCtx, id)
 	if err != nil {
-		internalErr(c, err, "failed to load organisation distribution after muso sync")
+		internalErr(c, err, "failed to load organisation roster stats after muso sync")
 		return
 	}
-	h.recordChange(c, domain.EntityTypeOrganisation, org.ID, org.Name, domain.ChangeActionMusoSync, org.LabelDistribution, refreshed.LabelDistribution)
-	c.JSON(http.StatusOK, refreshed.LabelDistribution)
+	h.recordChange(c, domain.EntityTypeOrganisation, org.ID, org.Name, domain.ChangeActionMusoSync, org.RosterStats, refreshed.RosterStats)
+	c.JSON(http.StatusOK, refreshed.RosterStats)
 }
 
 func (h *Handler) UpdateOrganisation(c *gin.Context) {

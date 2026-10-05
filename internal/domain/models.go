@@ -162,50 +162,67 @@ func (r OrgRecommendation) Valid() bool {
 }
 
 type Organisation struct {
-	ID                string             `json:"id"`
-	Name              string             `json:"name"`
-	Link              *string            `json:"link"`
-	Origin            string             `json:"origin"`
-	DescriptionUk     *string            `json:"description"`
-	DescriptionEn     *string            `json:"descriptionEn"`
-	Notes             *string            `json:"notes"`
-	Type              string             `json:"type"`
-	Recommendation    OrgRecommendation  `json:"recommendation"`
-	LabelDistribution *LabelDistribution `json:"labelDistribution"`
-	CreatedAt         time.Time          `json:"createdAt"`
-	UpdatedAt         time.Time          `json:"updatedAt"`
+	ID             string            `json:"id"`
+	Name           string            `json:"name"`
+	Link           *string           `json:"link"`
+	Origin         string            `json:"origin"`
+	DescriptionUk  *string           `json:"description"`
+	DescriptionEn  *string           `json:"descriptionEn"`
+	Notes          *string           `json:"notes"`
+	Type           string            `json:"type"`
+	Recommendation OrgRecommendation `json:"recommendation"`
+	RosterStats    *RosterStats      `json:"rosterStats"`
+	CreatedAt      time.Time         `json:"createdAt"`
+	UpdatedAt      time.Time         `json:"updatedAt"`
 }
 
+// Country codes the organisation chart singles out. Everything else is "other".
 const (
-	originRussia  = "RU"
-	originBelarus = "BY"
+	CountryRussia  = "RU"
+	CountryBelarus = "BY"
+	CountryUkraine = "UA"
 )
 
 // MusoExcludedOrigins lists the origins whose organisations get no muso data at
 // all. The site stamps those organisations instead of charting them, so fetching
 // their rosters would spend API credits on numbers nobody is shown.
 func MusoExcludedOrigins() []string {
-	return []string{originRussia, originBelarus}
+	return []string{CountryRussia, CountryBelarus}
 }
 
 // ExcludedFromMuso reports whether an organisation of this origin is neither synced
 // with muso nor served a distribution.
 func ExcludedFromMuso(origin string) bool {
-	return origin == originRussia || origin == originBelarus
+	return origin == CountryRussia || origin == CountryBelarus
 }
 
-// LabelDistribution splits the artists of an organisation's roster that pb holds
-// by listen label. An artist counts once, under its most severe label, so the four
-// buckets sum to Matched. RosterSize is everyone muso credits on the organisation;
+// RosterStats describes the artists of an organisation's muso roster that pb holds,
+// split two ways. Both splits cover the same Matched artists, each counted once, so
+// each sums to Matched. RosterSize is everyone muso credits on the organisation;
 // most of them are not in pb, which is why the two numbers travel together.
-type LabelDistribution struct {
-	Blocked    int        `json:"blocked"`
-	Warning    int        `json:"warning"`
-	Approved   int        `json:"approved"`
-	Unknown    int        `json:"unknown"`
-	Matched    int        `json:"matched"`
-	RosterSize int        `json:"rosterSize"`
-	SyncedAt   *time.Time `json:"syncedAt"`
+type RosterStats struct {
+	Matched    int          `json:"matched"`
+	RosterSize int          `json:"rosterSize"`
+	SyncedAt   *time.Time   `json:"syncedAt"`
+	ByStatus   StatusSplit  `json:"byStatus"`
+	ByCountry  CountrySplit `json:"byCountry"`
+}
+
+// StatusSplit counts artists by listen label, each under its most severe one.
+type StatusSplit struct {
+	Blocked  int `json:"blocked"`
+	Warning  int `json:"warning"`
+	Approved int `json:"approved"`
+	Unknown  int `json:"unknown"`
+}
+
+// CountrySplit counts artists by their primary curated country. Unknown holds the
+// artists pb has no country for.
+type CountrySplit struct {
+	RuBy    int `json:"ruBy"`
+	Ukraine int `json:"ukraine"`
+	Other   int `json:"other"`
+	Unknown int `json:"unknown"`
 }
 
 type OrganisationMuso struct {

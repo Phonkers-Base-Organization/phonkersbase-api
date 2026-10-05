@@ -72,13 +72,13 @@ func (r *OrganisationRepo) GetAll(ctx context.Context, params domain.ListOrganis
 		return nil, err
 	}
 
-	distributions, err := r.musoRepo.DistributionsFor(ctx, orgIDs)
+	rosterStats, err := r.musoRepo.RosterStatsFor(ctx, orgIDs)
 	if err != nil {
 		return nil, err
 	}
 	for i, id := range orgIDs {
-		if distribution, ok := distributions[id]; ok {
-			items[i].LabelDistribution = &distribution
+		if stats, ok := rosterStats[id]; ok {
+			items[i].RosterStats = &stats
 		}
 	}
 
@@ -118,12 +118,12 @@ func (r *OrganisationRepo) GetByID(ctx context.Context, id string) (*domain.Orga
 		return nil, err
 	}
 	o.ID = strconv.Itoa(oid)
-	distributions, err := r.musoRepo.DistributionsFor(ctx, []int{oid})
+	rosterStats, err := r.musoRepo.RosterStatsFor(ctx, []int{oid})
 	if err != nil {
 		return nil, err
 	}
-	if distribution, ok := distributions[oid]; ok {
-		o.LabelDistribution = &distribution
+	if stats, ok := rosterStats[oid]; ok {
+		o.RosterStats = &stats
 	}
 	return &o, nil
 }
