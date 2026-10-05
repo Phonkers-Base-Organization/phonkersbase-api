@@ -176,6 +176,24 @@ type Organisation struct {
 	UpdatedAt         time.Time          `json:"updatedAt"`
 }
 
+const (
+	originRussia  = "RU"
+	originBelarus = "BY"
+)
+
+// MusoExcludedOrigins lists the origins whose organisations get no muso data at
+// all. The site stamps those organisations instead of charting them, so fetching
+// their rosters would spend API credits on numbers nobody is shown.
+func MusoExcludedOrigins() []string {
+	return []string{originRussia, originBelarus}
+}
+
+// ExcludedFromMuso reports whether an organisation of this origin is neither synced
+// with muso nor served a distribution.
+func ExcludedFromMuso(origin string) bool {
+	return origin == originRussia || origin == originBelarus
+}
+
 // LabelDistribution splits the artists of an organisation's roster that pb holds
 // by listen label. An artist counts once, under its most severe label, so the four
 // buckets sum to Matched. RosterSize is everyone muso credits on the organisation;

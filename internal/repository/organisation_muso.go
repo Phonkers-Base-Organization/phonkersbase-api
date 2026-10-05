@@ -28,8 +28,9 @@ func (r *OrganisationMusoRepo) GetOrganisationsForSweep(ctx context.Context) ([]
 		SELECT o.id, o.name
 		FROM organisations o
 		LEFT JOIN organisation_muso om ON om.organisation_id = o.id
+		WHERE o.origin <> ALL($1)
 		ORDER BY om.last_checked_at ASC NULLS FIRST, o.id ASC
-	`)
+	`, domain.MusoExcludedOrigins())
 	if err != nil {
 		return nil, err
 	}
@@ -241,12 +242,14 @@ func (r *OrganisationMusoRepo) DistributionsFor(ctx context.Context, orgIDs []in
 			om.roster_size,
 			om.last_synced_at
 		FROM organisation_muso om
+		JOIN organisations o ON o.id = om.organisation_id
 		LEFT JOIN roster ro ON ro.organisation_id = om.organisation_id
 		-- An empty roster is nothing to chart, so it reads as absent rather than as a
-		-- distribution of zeroes.
-		WHERE om.organisation_id = ANY($1) AND om.roster_size > 0
+		-- distribution of zeroes. Excluded origins read as absent too, including any
+		-- organisation synced before its origin was set to one of them.
+		WHERE om.organisation_id = ANY($1) AND om.roster_size > 0 AND o.origin <> ALL($5)
 		GROUP BY om.organisation_id, om.roster_size, om.last_synced_at
-	`, orgIDs, listenLabelBlocked, listenLabelWarning, listenLabelsApproved)
+	`, orgIDs, listenLabelBlocked, listenLabelWarning, listenLabelsApproved, domain.MusoExcludedOrigins())
 	if err != nil {
 		return nil, err
 	}

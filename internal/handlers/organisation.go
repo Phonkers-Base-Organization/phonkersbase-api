@@ -102,7 +102,7 @@ func (h *Handler) CreateOrganisation(c *gin.Context) {
 	}
 	h.recordChange(c, domain.EntityTypeOrganisation, org.ID, org.Name, domain.ChangeActionCreate, nil, org)
 	organisationID, err := strconv.Atoi(org.ID)
-	if h.musoSyncer != nil && err == nil {
+	if h.musoSyncer != nil && err == nil && !domain.ExcludedFromMuso(org.Origin) {
 		// The request context dies with the response, so the new organisation's first
 		// sync runs on its own deadline rather than blocking the create.
 		go func(id int, name string) {
@@ -143,6 +143,11 @@ func (h *Handler) SyncOrganisationMuso(c *gin.Context) {
 			return
 		}
 		internalErr(c, err, "failed to get organisation for muso sync")
+		return
+	}
+
+	if domain.ExcludedFromMuso(org.Origin) {
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"message": "muso sync is skipped for organisations of this origin"})
 		return
 	}
 
