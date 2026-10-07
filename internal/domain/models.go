@@ -176,11 +176,10 @@ type Organisation struct {
 	UpdatedAt      time.Time         `json:"updatedAt"`
 }
 
-// Country codes the organisation chart singles out. Everything else is "other".
+// Country codes of the origins the site flags outright.
 const (
 	CountryRussia  = "RU"
 	CountryBelarus = "BY"
-	CountryUkraine = "UA"
 )
 
 // MusoExcludedOrigins lists the origins whose organisations get no muso data at
@@ -216,13 +215,16 @@ type StatusSplit struct {
 	Unknown  int `json:"unknown"`
 }
 
-// CountrySplit counts artists by their primary curated country. Unknown holds the
-// artists pb has no country for.
+// CountrySplit counts artists by their primary curated country, one entry per
+// country, largest first. Unknown holds the artists pb has no country for.
 type CountrySplit struct {
-	RuBy    int `json:"ruBy"`
-	Ukraine int `json:"ukraine"`
-	Other   int `json:"other"`
-	Unknown int `json:"unknown"`
+	Countries []CountryCount `json:"countries"`
+	Unknown   int            `json:"unknown"`
+}
+
+type CountryCount struct {
+	Code  string `json:"code"`
+	Count int    `json:"count"`
 }
 
 type OrganisationMuso struct {

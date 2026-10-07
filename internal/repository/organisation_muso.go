@@ -235,36 +235,53 @@ func (r *OrganisationMusoRepo) RosterStatsFor(ctx context.Context, orgIDs []int)
 			FROM artist_countries ac
 			WHERE ac.artist_id IN (SELECT artist_id FROM roster)
 			ORDER BY ac.artist_id, ac.position, ac.code
+		),
+		country_counts AS (
+			SELECT ro.organisation_id, pc.code, COUNT(*) AS artists
+			FROM roster ro
+			JOIN primary_country pc ON pc.artist_id = ro.artist_id
+			GROUP BY ro.organisation_id, pc.code
+		),
+		country_lists AS (
+			SELECT
+				organisation_id,
+				json_agg(json_build_object('code', code, 'count', artists) ORDER BY artists DESC, code) AS countries
+			FROM country_counts
+			GROUP BY organisation_id
+		),
+		totals AS (
+			SELECT
+				om.organisation_id,
+				COUNT(ro.artist_id) AS matched,
+				om.roster_size,
+				om.last_synced_at,
+				-- An artist can carry several labels (approved+warning is common), so
+				-- each one lands in the most severe bucket it qualifies for: blocked,
+				-- then warning, then approved. Whatever is left, unlabelled artists
+				-- included, is unknown.
+				COUNT(*) FILTER (WHERE ro.blocked) AS blocked,
+				COUNT(*) FILTER (WHERE ro.warning AND NOT ro.blocked) AS warning,
+				COUNT(*) FILTER (WHERE ro.approved AND NOT ro.warning AND NOT ro.blocked) AS approved,
+				COUNT(*) FILTER (WHERE ro.artist_id IS NOT NULL AND NOT ro.approved AND NOT ro.warning AND NOT ro.blocked) AS status_unknown,
+				COUNT(*) FILTER (WHERE ro.artist_id IS NOT NULL AND pc.code IS NULL) AS country_unknown
+			FROM organisation_muso om
+			JOIN organisations o ON o.id = om.organisation_id
+			LEFT JOIN roster ro ON ro.organisation_id = om.organisation_id
+			LEFT JOIN primary_country pc ON pc.artist_id = ro.artist_id
+			-- An empty roster is nothing to chart, so it reads as absent rather than
+			-- as stats full of zeroes. Excluded origins read as absent too, including
+			-- any organisation synced before its origin was set to one of them.
+			WHERE om.organisation_id = ANY($1) AND om.roster_size > 0 AND o.origin <> ALL($5)
+			GROUP BY om.organisation_id, om.roster_size, om.last_synced_at
 		)
 		SELECT
-			om.organisation_id,
-			COUNT(ro.artist_id),
-			om.roster_size,
-			om.last_synced_at,
-			-- An artist can carry several labels (approved+warning is common), so each
-			-- one lands in the most severe bucket it qualifies for: blocked, then
-			-- warning, then approved. Whatever is left, unlabelled artists included,
-			-- is unknown.
-			COUNT(*) FILTER (WHERE ro.blocked),
-			COUNT(*) FILTER (WHERE ro.warning AND NOT ro.blocked),
-			COUNT(*) FILTER (WHERE ro.approved AND NOT ro.warning AND NOT ro.blocked),
-			COUNT(*) FILTER (WHERE ro.artist_id IS NOT NULL AND NOT ro.approved AND NOT ro.warning AND NOT ro.blocked),
-			COUNT(*) FILTER (WHERE pc.code = ANY($5)),
-			COUNT(*) FILTER (WHERE pc.code = $6),
-			COUNT(*) FILTER (WHERE pc.code <> ALL($5) AND pc.code <> $6),
-			COUNT(*) FILTER (WHERE ro.artist_id IS NOT NULL AND pc.code IS NULL)
-		FROM organisation_muso om
-		JOIN organisations o ON o.id = om.organisation_id
-		LEFT JOIN roster ro ON ro.organisation_id = om.organisation_id
-		LEFT JOIN primary_country pc ON pc.artist_id = ro.artist_id
-		-- An empty roster is nothing to chart, so it reads as absent rather than as
-		-- stats full of zeroes. Excluded origins read as absent too, including any
-		-- organisation synced before its origin was set to one of them.
-		WHERE om.organisation_id = ANY($1) AND om.roster_size > 0 AND o.origin <> ALL($7)
-		GROUP BY om.organisation_id, om.roster_size, om.last_synced_at
-	`, orgIDs, listenLabelBlocked, listenLabelWarning, listenLabelsApproved,
-		[]string{domain.CountryRussia, domain.CountryBelarus}, domain.CountryUkraine,
-		domain.MusoExcludedOrigins())
+			t.organisation_id, t.matched, t.roster_size, t.last_synced_at,
+			t.blocked, t.warning, t.approved, t.status_unknown,
+			COALESCE(cl.countries, '[]'::json),
+			t.country_unknown
+		FROM totals t
+		LEFT JOIN country_lists cl ON cl.organisation_id = t.organisation_id
+	`, orgIDs, listenLabelBlocked, listenLabelWarning, listenLabelsApproved, domain.MusoExcludedOrigins())
 	if err != nil {
 		return nil, err
 	}
@@ -282,9 +299,7 @@ func (r *OrganisationMusoRepo) RosterStatsFor(ctx context.Context, orgIDs []int)
 			&stats.ByStatus.Warning,
 			&stats.ByStatus.Approved,
 			&stats.ByStatus.Unknown,
-			&stats.ByCountry.RuBy,
-			&stats.ByCountry.Ukraine,
-			&stats.ByCountry.Other,
+			&stats.ByCountry.Countries,
 			&stats.ByCountry.Unknown,
 		)
 		if err != nil {
