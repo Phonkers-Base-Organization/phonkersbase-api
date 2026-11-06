@@ -24,16 +24,15 @@ func ValidEntityType(t string) bool {
 
 // Actions recorded in the change history.
 const (
-	ChangeActionCreate   = "create"
-	ChangeActionUpdate   = "update"
-	ChangeActionDelete   = "delete"
-	ChangeActionMusoSync = "muso_sync"
+	ChangeActionCreate = "create"
+	ChangeActionUpdate = "update"
+	ChangeActionDelete = "delete"
 )
 
 // ValidChangeAction reports whether a is a recognized change action.
 func ValidChangeAction(a string) bool {
 	switch a {
-	case ChangeActionCreate, ChangeActionUpdate, ChangeActionDelete, ChangeActionMusoSync:
+	case ChangeActionCreate, ChangeActionUpdate, ChangeActionDelete:
 		return true
 	}
 	return false

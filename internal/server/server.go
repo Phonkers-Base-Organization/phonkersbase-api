@@ -21,7 +21,6 @@ import (
 	"github.com/PhonkersBase/base-api2/internal/metrics"
 	"github.com/PhonkersBase/base-api2/internal/middlewares"
 	"github.com/PhonkersBase/base-api2/internal/migrations"
-	"github.com/PhonkersBase/base-api2/internal/muso"
 	"github.com/PhonkersBase/base-api2/internal/repository"
 )
 
@@ -65,10 +64,6 @@ func Run() error {
 
 	organisationMusoRepo := repository.NewOrganisationMusoRepo(dbpool)
 	organisationRepo := repository.NewOrganisationRepo(dbpool, organisationMusoRepo)
-	var musoSyncer *muso.Syncer
-	if cfg.MusoAPIKey != "" {
-		musoSyncer = muso.NewSyncer(muso.New(cfg.MusoAPIKey, nil), organisationMusoRepo)
-	}
 
 	h := handlers.NewHandler(
 		repository.NewArtistRepo(dbpool),
@@ -79,8 +74,6 @@ func Run() error {
 		repository.NewFeedbackRepo(dbpool),
 		organisationRepo,
 		repository.NewChangeHistoryRepo(dbpool),
-		organisationMusoRepo,
-		musoSyncer,
 		cfg.JWTSecret,
 	)
 
@@ -163,8 +156,6 @@ func Run() error {
 		admin.POST("/organisation", h.CreateOrganisation)
 		admin.PUT("/organisation/:id", h.UpdateOrganisation)
 		admin.DELETE("/organisation/:id", h.DeleteOrganisation)
-		admin.POST("/organisation/:id/muso-sync", h.SyncOrganisationMuso)
-		admin.GET("/organisation/muso-status", h.GetOrganisationMusoStates)
 
 	}
 
@@ -187,22 +178,6 @@ func Run() error {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-
-	var sweepDone chan struct{}
-	if musoSyncer == nil {
-		log.Info().Msg("muso organisation sweep disabled")
-	} else {
-		sweepDone = make(chan struct{})
-		go func() {
-			defer close(sweepDone)
-			runMusoSweep(ctx, musoSyncer, organisationMusoRepo)
-		}()
-		// Every exit below waits for the sweep to acknowledge cancellation.
-		defer func() {
-			stop()
-			<-sweepDone
-		}()
-	}
 
 	select {
 	case <-ctx.Done():

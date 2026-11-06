@@ -182,17 +182,10 @@ const (
 	CountryBelarus = "BY"
 )
 
-// MusoExcludedOrigins lists the origins whose organisations get no muso data at
-// all. The site stamps those organisations instead of charting them, so fetching
-// their rosters would spend API credits on numbers nobody is shown.
+// MusoExcludedOrigins lists the origins whose organisations get no roster stats.
+// The site stamps those organisations instead of charting them.
 func MusoExcludedOrigins() []string {
 	return []string{CountryRussia, CountryBelarus}
-}
-
-// ExcludedFromMuso reports whether an organisation of this origin is neither synced
-// with muso nor served a distribution.
-func ExcludedFromMuso(origin string) bool {
-	return origin == CountryRussia || origin == CountryBelarus
 }
 
 // RosterStats describes the artists of an organisation's muso roster that pb holds,
@@ -225,21 +218,6 @@ type CountrySplit struct {
 type CountryCount struct {
 	Code  string `json:"code"`
 	Count int    `json:"count"`
-}
-
-type OrganisationMuso struct {
-	ID                 int64      `json:"id"`
-	OrganisationID     int        `json:"organisationId"`
-	MusoProfileID      string     `json:"musoProfileId"`
-	CollaboratorsCount int        `json:"collaboratorsCount"`
-	CreditCount        int        `json:"creditCount"`
-	RosterSize         int        `json:"rosterSize"`
-	LastCheckedAt      *time.Time `json:"lastCheckedAt"`
-	LastSyncedAt       *time.Time `json:"lastSyncedAt"`
-	SyncStatus         string     `json:"syncStatus"`
-	SyncError          *string    `json:"syncError"`
-	CreatedAt          time.Time  `json:"createdAt"`
-	UpdatedAt          time.Time  `json:"updatedAt"`
 }
 
 type PaginatedOrganisations struct {
