@@ -25,6 +25,15 @@ type LabelRef struct {
 	Name string `json:"name"`
 }
 
+// ArtistRef is the slim representation of an artist inside an organisation's
+// artist list.
+type ArtistRef struct {
+	ID        string  `json:"id"`
+	Name      string  `json:"name"`
+	AvatarURL *string `json:"avatarUrl"`
+	SpotifyID *string `json:"spotifyId"`
+}
+
 type EvidenceSource struct {
 	ID        string    `json:"id"`
 	Name      string    `json:"name"`
@@ -171,8 +180,53 @@ type Organisation struct {
 	Notes          *string           `json:"notes"`
 	Type           string            `json:"type"`
 	Recommendation OrgRecommendation `json:"recommendation"`
+	RosterStats    *RosterStats      `json:"rosterStats"`
 	CreatedAt      time.Time         `json:"createdAt"`
 	UpdatedAt      time.Time         `json:"updatedAt"`
+}
+
+// Country codes of the origins the site flags outright.
+const (
+	CountryRussia  = "RU"
+	CountryBelarus = "BY"
+)
+
+// UnchartedOrigins lists the origins whose organisations get no roster stats.
+// The site stamps those organisations instead of charting them.
+func UnchartedOrigins() []string {
+	return []string{CountryRussia, CountryBelarus}
+}
+
+// RosterStats describes the artists on an organisation's artist list, split two
+// ways. The list is curated by hand. Both splits cover the same Matched artists,
+// each counted once, so each sums to Matched. RosterSize is the larger of the
+// organisation's recorded roster size and Matched; most of the roster is not in
+// pb, which is why the two numbers travel together.
+type RosterStats struct {
+	Matched    int          `json:"matched"`
+	RosterSize int          `json:"rosterSize"`
+	ByStatus   StatusSplit  `json:"byStatus"`
+	ByCountry  CountrySplit `json:"byCountry"`
+}
+
+// StatusSplit counts artists by listen label, each under its most severe one.
+type StatusSplit struct {
+	Blocked  int `json:"blocked"`
+	Warning  int `json:"warning"`
+	Approved int `json:"approved"`
+	Unknown  int `json:"unknown"`
+}
+
+// CountrySplit counts artists by their primary curated country, one entry per
+// country, largest first. Unknown holds the artists pb has no country for.
+type CountrySplit struct {
+	Countries []CountryCount `json:"countries"`
+	Unknown   int            `json:"unknown"`
+}
+
+type CountryCount struct {
+	Code  string `json:"code"`
+	Count int    `json:"count"`
 }
 
 type PaginatedOrganisations struct {
@@ -196,4 +250,12 @@ type ListOrganisationsParams struct {
 	Search string
 	Limit  int
 	Offset int
+}
+
+type SiteSettings struct {
+	ShowOrganisationRecommendations bool `json:"showOrganisationRecommendations"`
+}
+
+type ReplaceOrganisationArtistsInput struct {
+	ArtistIDs []string `json:"artistIds" binding:"required"`
 }

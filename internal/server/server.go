@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -61,6 +62,8 @@ func Run() error {
 	}
 	log.Info().Msg("database migrations applied")
 
+	organisationRepo := repository.NewOrganisationRepo(dbpool)
+
 	h := handlers.NewHandler(
 		repository.NewArtistRepo(dbpool),
 		repository.NewLabelRepo(dbpool),
@@ -68,8 +71,9 @@ func Run() error {
 		repository.NewUserRepo(dbpool),
 		repository.NewSuggestionRepo(dbpool),
 		repository.NewFeedbackRepo(dbpool),
-		repository.NewOrganisationRepo(dbpool),
+		organisationRepo,
 		repository.NewChangeHistoryRepo(dbpool),
+		repository.NewSiteSettingsRepo(dbpool),
 		cfg.JWTSecret,
 	)
 
@@ -104,6 +108,7 @@ func Run() error {
 	v1.GET("/organisation/labels", h.GetLabelOrganisations)
 	v1.GET("/organisation/distributors", h.GetDistributorOrganisations)
 	v1.GET("/organisation/cults", h.GetCultOrganisations)
+	v1.GET("/settings", h.GetSiteSettings)
 	v1.POST("/auth/login", h.Login)
 	v1.POST("/suggestion", h.CreateSuggestion)
 	v1.POST("/feedback", h.CreateFeedback)
@@ -124,7 +129,6 @@ func Run() error {
 		protected.POST("/label", h.CreateLabel)
 		protected.PUT("/label/:id", h.UpdateLabel)
 		protected.DELETE("/label/:id", h.DeleteLabel)
-
 
 		protected.GET("/suggestion", h.GetSuggestions)
 		protected.DELETE("/suggestion/:id", h.DeleteSuggestion)
@@ -153,7 +157,10 @@ func Run() error {
 		admin.POST("/organisation", h.CreateOrganisation)
 		admin.PUT("/organisation/:id", h.UpdateOrganisation)
 		admin.DELETE("/organisation/:id", h.DeleteOrganisation)
+		admin.GET("/organisation/:id/artists", h.GetOrganisationArtists)
+		admin.PUT("/organisation/:id/artists", h.ReplaceOrganisationArtists)
 
+		admin.PUT("/settings", h.UpdateSiteSettings)
 	}
 
 	errCh := make(chan error, 1)
@@ -173,12 +180,12 @@ func Run() error {
 		}
 	}()
 
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, os.Interrupt)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
 	select {
-	case sig := <-sigCh:
-		log.Info().Msgf("received signal: %s, shutting down server", sig)
+	case <-ctx.Done():
+		log.Info().Msg("received shutdown signal, shutting down server")
 	case err := <-errCh:
 		return err
 	}
