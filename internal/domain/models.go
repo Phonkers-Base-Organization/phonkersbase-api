@@ -191,23 +191,20 @@ const (
 	CountryBelarus = "BY"
 )
 
-// MusoExcludedOrigins lists the origins whose organisations get no roster stats.
+// UnchartedOrigins lists the origins whose organisations get no roster stats.
 // The site stamps those organisations instead of charting them.
-func MusoExcludedOrigins() []string {
+func UnchartedOrigins() []string {
 	return []string{CountryRussia, CountryBelarus}
 }
 
 // RosterStats describes the artists on an organisation's artist list, split two
-// ways. The list is curated by hand and may also hold artists a past muso sync
-// matched. Both splits cover the same Matched artists, each counted once, so each
-// sums to Matched. RosterSize is the larger of muso's credited total and Matched,
-// so it equals Matched for a list without a muso total; most credited artists are
-// not in pb, which is why the two numbers travel together. SyncedAt is nil for an
-// organisation without a muso sync.
+// ways. The list is curated by hand. Both splits cover the same Matched artists,
+// each counted once, so each sums to Matched. RosterSize is the larger of the
+// organisation's recorded roster size and Matched; most of the roster is not in
+// pb, which is why the two numbers travel together.
 type RosterStats struct {
 	Matched    int          `json:"matched"`
 	RosterSize int          `json:"rosterSize"`
-	SyncedAt   *time.Time   `json:"syncedAt"`
 	ByStatus   StatusSplit  `json:"byStatus"`
 	ByCountry  CountrySplit `json:"byCountry"`
 }

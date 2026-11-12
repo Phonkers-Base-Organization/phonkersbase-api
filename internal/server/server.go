@@ -62,8 +62,7 @@ func Run() error {
 	}
 	log.Info().Msg("database migrations applied")
 
-	organisationMusoRepo := repository.NewOrganisationMusoRepo(dbpool)
-	organisationRepo := repository.NewOrganisationRepo(dbpool, organisationMusoRepo)
+	organisationRepo := repository.NewOrganisationRepo(dbpool)
 
 	h := handlers.NewHandler(
 		repository.NewArtistRepo(dbpool),
