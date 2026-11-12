@@ -2,7 +2,6 @@ CREATE TABLE organisation_muso (
     id                  BIGSERIAL PRIMARY KEY,
     organisation_id     INT NOT NULL UNIQUE REFERENCES organisations(id) ON DELETE CASCADE,
     muso_profile_id     TEXT NOT NULL,
-    -- Reported by muso search and used as the roster change-detection signal.
     collaborators_count INT NOT NULL DEFAULT 0,
     credit_count        INT NOT NULL DEFAULT 0,
     roster_size         INT NOT NULL DEFAULT 0,
@@ -20,10 +19,11 @@ CREATE TABLE organisation_muso (
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- muso_profile_id is NULL on artists an admin added by hand.
 CREATE TABLE organisation_artists (
     organisation_id INT NOT NULL REFERENCES organisations(id) ON DELETE CASCADE,
     artist_id       INT NOT NULL REFERENCES artists(id) ON DELETE CASCADE,
-    muso_profile_id TEXT NOT NULL,
+    muso_profile_id TEXT,
     PRIMARY KEY (organisation_id, artist_id)
 );
 
@@ -31,12 +31,23 @@ CREATE TRIGGER organisation_muso_updated_at
     BEFORE UPDATE ON organisation_muso
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
--- The organisation_artists index serves the distribution join; the
--- organisation_muso index serves oldest-first nightly sweep ordering.
 CREATE INDEX idx_organisation_artists_organisation_id ON organisation_artists (organisation_id);
-CREATE INDEX idx_organisation_muso_last_checked_at ON organisation_muso (last_checked_at);
+
+CREATE TABLE site_settings (
+    id                                BOOLEAN PRIMARY KEY DEFAULT true CHECK (id),
+    show_organisation_recommendations BOOLEAN NOT NULL DEFAULT false,
+    updated_at                        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+INSERT INTO site_settings DEFAULT VALUES;
+
+CREATE TRIGGER site_settings_updated_at
+    BEFORE UPDATE ON site_settings
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 ---- create above / drop below ----
+
+DROP TABLE IF EXISTS site_settings;
 
 DROP TABLE IF EXISTS organisation_artists;
 DROP TABLE IF EXISTS organisation_muso;
