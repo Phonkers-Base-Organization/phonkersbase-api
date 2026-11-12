@@ -31,6 +31,7 @@ type Handler struct {
 	feedbacks     *repository.FeedbackRepo
 	organisations *repository.OrganisationRepo
 	changeHistory *repository.ChangeHistoryRepo
+	siteSettings  *repository.SiteSettingsRepo
 	jwtSecret     string
 }
 
@@ -43,6 +44,7 @@ func NewHandler(
 	feedbacks *repository.FeedbackRepo,
 	organisations *repository.OrganisationRepo,
 	changeHistory *repository.ChangeHistoryRepo,
+	siteSettings *repository.SiteSettingsRepo,
 	jwtSecret string,
 ) *Handler {
 	return &Handler{
@@ -54,6 +56,7 @@ func NewHandler(
 		feedbacks:     feedbacks,
 		organisations: organisations,
 		changeHistory: changeHistory,
+		siteSettings:  siteSettings,
 		jwtSecret:     jwtSecret,
 	}
 }

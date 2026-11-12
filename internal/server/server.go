@@ -74,6 +74,7 @@ func Run() error {
 		repository.NewFeedbackRepo(dbpool),
 		organisationRepo,
 		repository.NewChangeHistoryRepo(dbpool),
+		repository.NewSiteSettingsRepo(dbpool),
 		cfg.JWTSecret,
 	)
 
@@ -108,6 +109,7 @@ func Run() error {
 	v1.GET("/organisation/labels", h.GetLabelOrganisations)
 	v1.GET("/organisation/distributors", h.GetDistributorOrganisations)
 	v1.GET("/organisation/cults", h.GetCultOrganisations)
+	v1.GET("/settings", h.GetSiteSettings)
 	v1.POST("/auth/login", h.Login)
 	v1.POST("/suggestion", h.CreateSuggestion)
 	v1.POST("/feedback", h.CreateFeedback)
@@ -157,6 +159,7 @@ func Run() error {
 		admin.PUT("/organisation/:id", h.UpdateOrganisation)
 		admin.DELETE("/organisation/:id", h.DeleteOrganisation)
 
+		admin.PUT("/settings", h.UpdateSiteSettings)
 	}
 
 	errCh := make(chan error, 1)

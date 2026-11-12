@@ -242,3 +242,7 @@ type ListOrganisationsParams struct {
 	Limit  int
 	Offset int
 }
+
+type SiteSettings struct {
+	ShowOrganisationRecommendations bool `json:"showOrganisationRecommendations"`
+}
