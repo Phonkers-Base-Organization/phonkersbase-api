@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/PhonkersBase/base-api2/internal/domain"
@@ -180,4 +181,100 @@ func (r *OrganisationRepo) Delete(ctx context.Context, id string) error {
 		return ErrNotFound
 	}
 	return nil
+}
+
+const pgForeignKeyViolation = "23503"
+
+var ErrUnknownArtist = errors.New("unknown artist")
+
+func (r *OrganisationRepo) GetArtists(ctx context.Context, id string) ([]domain.ArtistRef, error) {
+	orgID, err := strconv.Atoi(id)
+	if err != nil {
+		return nil, ErrNotFound
+	}
+	return r.listArtists(ctx, r.db, orgID)
+}
+
+type artistLister interface {
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+}
+
+func (r *OrganisationRepo) listArtists(ctx context.Context, q artistLister, orgID int) ([]domain.ArtistRef, error) {
+	rows, err := q.Query(ctx, `
+		-- name: organisation.get_artists
+		SELECT a.id, a.name, a.avatar_url, a.spotify_id
+		FROM organisations o
+		LEFT JOIN organisation_artists oa ON oa.organisation_id = o.id
+		LEFT JOIN artists a ON a.id = oa.artist_id
+		WHERE o.id = $1
+		ORDER BY lower(a.name), a.id
+	`, orgID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	artists := []domain.ArtistRef{}
+	found := false
+	for rows.Next() {
+		found = true
+		var aid *int
+		var name *string
+		var a domain.ArtistRef
+		err := rows.Scan(&aid, &name, &a.AvatarURL, &a.SpotifyID)
+		if err != nil {
+			return nil, err
+		}
+		if aid == nil {
+			continue
+		}
+		a.ID = strconv.Itoa(*aid)
+		a.Name = *name
+		artists = append(artists, a)
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, err
+	}
+	if !found {
+		return nil, ErrNotFound
+	}
+	return artists, nil
+}
+
+func (r *OrganisationRepo) ReplaceArtists(ctx context.Context, id string, artistIDs []int) ([]domain.ArtistRef, error) {
+	orgID, err := strconv.Atoi(id)
+	if err != nil {
+		return nil, ErrNotFound
+	}
+	if artistIDs == nil {
+		artistIDs = []int{}
+	}
+
+	var artists []domain.ArtistRef
+	err = pgx.BeginFunc(ctx, r.db, func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `
+			-- name: organisation.replace_artists
+			WITH removed AS (
+				DELETE FROM organisation_artists
+				WHERE organisation_id = $1 AND NOT (artist_id = ANY($2))
+			)
+			INSERT INTO organisation_artists (organisation_id, artist_id)
+			SELECT $1, unnest($2::int[])
+			ON CONFLICT DO NOTHING
+		`, orgID, artistIDs)
+		if err != nil {
+			return err
+		}
+		artists, err = r.listArtists(ctx, tx, orgID)
+		return err
+	})
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == pgForeignKeyViolation {
+			return nil, ErrUnknownArtist
+		}
+		return nil, err
+	}
+	return artists, nil
 }

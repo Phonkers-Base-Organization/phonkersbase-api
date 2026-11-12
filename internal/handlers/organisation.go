@@ -151,3 +151,75 @@ func (h *Handler) DeleteOrganisation(c *gin.Context) {
 	h.recordChange(c, domain.EntityTypeOrganisation, id, deletedName, domain.ChangeActionDelete, old, nil)
 	c.Status(http.StatusNoContent)
 }
+
+func (h *Handler) GetOrganisationArtists(c *gin.Context) {
+	artists, err := h.organisations.GetArtists(c.Request.Context(), c.Param("id"))
+	if err != nil {
+		if err == repository.ErrNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"message": "organisation not found"})
+			return
+		}
+		internalErr(c, err, "failed to get organisation artists")
+		return
+	}
+	c.JSON(http.StatusOK, artists)
+}
+
+func (h *Handler) ReplaceOrganisationArtists(c *gin.Context) {
+	id := c.Param("id")
+	var input domain.ReplaceOrganisationArtistsInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+		return
+	}
+	artistIDs := make([]int, 0, len(input.ArtistIDs))
+	for _, raw := range input.ArtistIDs {
+		artistID, err := strconv.Atoi(raw)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"message": "invalid artist id: " + raw})
+			return
+		}
+		artistIDs = append(artistIDs, artistID)
+	}
+
+	org, err := h.organisations.GetByID(c.Request.Context(), id)
+	if err != nil {
+		if err == repository.ErrNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"message": "organisation not found"})
+			return
+		}
+		internalErr(c, err, "failed to fetch organisation before artists update")
+		return
+	}
+	old, err := h.organisations.GetArtists(c.Request.Context(), id)
+	if err != nil {
+		internalErr(c, err, "failed to fetch organisation artists before update")
+		return
+	}
+
+	artists, err := h.organisations.ReplaceArtists(c.Request.Context(), id, artistIDs)
+	if err != nil {
+		switch err {
+		case repository.ErrNotFound:
+			c.JSON(http.StatusNotFound, gin.H{"message": "organisation not found"})
+		case repository.ErrUnknownArtist:
+			c.JSON(http.StatusBadRequest, gin.H{"message": "unknown artist id"})
+		default:
+			internalErr(c, err, "failed to replace organisation artists")
+		}
+		return
+	}
+	h.recordChange(c, domain.EntityTypeOrganisation, org.ID, org.Name, domain.ChangeActionUpdate,
+		map[string]any{"artists": artistNames(old)},
+		map[string]any{"artists": artistNames(artists)},
+	)
+	c.JSON(http.StatusOK, artists)
+}
+
+func artistNames(artists []domain.ArtistRef) []string {
+	names := make([]string, 0, len(artists))
+	for _, a := range artists {
+		names = append(names, a.Name)
+	}
+	return names
+}

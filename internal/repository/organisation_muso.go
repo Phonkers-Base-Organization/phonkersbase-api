@@ -26,7 +26,8 @@ const (
 var listenLabelsApproved = []string{"approved", "pride", "base"}
 
 // RosterStatsFor returns, for a whole page of organisations in one query, how the
-// roster artists pb holds split by listen label and by country.
+// artists on each organisation's list split by listen label and by country.
+// Organisations with an empty list and no muso total are absent from the result.
 func (r *OrganisationMusoRepo) RosterStatsFor(ctx context.Context, orgIDs []int) (map[int]domain.RosterStats, error) {
 	rosterStats := make(map[int]domain.RosterStats, len(orgIDs))
 	if len(orgIDs) == 0 {
@@ -70,9 +71,9 @@ func (r *OrganisationMusoRepo) RosterStatsFor(ctx context.Context, orgIDs []int)
 		),
 		totals AS (
 			SELECT
-				om.organisation_id,
+				o.id AS organisation_id,
 				COUNT(ro.artist_id) AS matched,
-				om.roster_size,
+				GREATEST(COALESCE(om.roster_size, 0), COUNT(ro.artist_id)) AS roster_size,
 				om.last_synced_at,
 				-- An artist can carry several labels (approved+warning is common), so
 				-- each one lands in the most severe bucket it qualifies for: blocked,
@@ -83,15 +84,17 @@ func (r *OrganisationMusoRepo) RosterStatsFor(ctx context.Context, orgIDs []int)
 				COUNT(*) FILTER (WHERE ro.approved AND NOT ro.warning AND NOT ro.blocked) AS approved,
 				COUNT(*) FILTER (WHERE ro.artist_id IS NOT NULL AND NOT ro.approved AND NOT ro.warning AND NOT ro.blocked) AS status_unknown,
 				COUNT(*) FILTER (WHERE ro.artist_id IS NOT NULL AND pc.code IS NULL) AS country_unknown
-			FROM organisation_muso om
-			JOIN organisations o ON o.id = om.organisation_id
-			LEFT JOIN roster ro ON ro.organisation_id = om.organisation_id
+			FROM organisations o
+			LEFT JOIN organisation_muso om ON om.organisation_id = o.id
+			LEFT JOIN roster ro ON ro.organisation_id = o.id
 			LEFT JOIN primary_country pc ON pc.artist_id = ro.artist_id
-			-- An empty roster is nothing to chart, so it reads as absent rather than
-			-- as stats full of zeroes. Excluded origins read as absent too, including
-			-- any organisation synced before its origin was set to one of them.
-			WHERE om.organisation_id = ANY($1) AND om.roster_size > 0 AND o.origin <> ALL($5)
-			GROUP BY om.organisation_id, om.roster_size, om.last_synced_at
+			-- An empty list with no muso total is nothing to chart, so it reads as
+			-- absent rather than as stats full of zeroes. Excluded origins read as
+			-- absent too, including any organisation synced before its origin was
+			-- set to one of them.
+			WHERE o.id = ANY($1) AND o.origin <> ALL($5)
+			GROUP BY o.id, om.roster_size, om.last_synced_at
+			HAVING COUNT(ro.artist_id) > 0 OR COALESCE(om.roster_size, 0) > 0
 		)
 		SELECT
 			t.organisation_id, t.matched, t.roster_size, t.last_synced_at,

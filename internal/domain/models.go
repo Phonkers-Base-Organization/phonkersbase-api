@@ -25,6 +25,15 @@ type LabelRef struct {
 	Name string `json:"name"`
 }
 
+// ArtistRef is the slim representation of an artist inside an organisation's
+// artist list.
+type ArtistRef struct {
+	ID        string  `json:"id"`
+	Name      string  `json:"name"`
+	AvatarURL *string `json:"avatarUrl"`
+	SpotifyID *string `json:"spotifyId"`
+}
+
 type EvidenceSource struct {
 	ID        string    `json:"id"`
 	Name      string    `json:"name"`
@@ -188,10 +197,13 @@ func MusoExcludedOrigins() []string {
 	return []string{CountryRussia, CountryBelarus}
 }
 
-// RosterStats describes the artists of an organisation's muso roster that pb holds,
-// split two ways. Both splits cover the same Matched artists, each counted once, so
-// each sums to Matched. RosterSize is everyone muso credits on the organisation;
-// most of them are not in pb, which is why the two numbers travel together.
+// RosterStats describes the artists on an organisation's artist list, split two
+// ways. The list is curated by hand and may also hold artists a past muso sync
+// matched. Both splits cover the same Matched artists, each counted once, so each
+// sums to Matched. RosterSize is the larger of muso's credited total and Matched,
+// so it equals Matched for a list without a muso total; most credited artists are
+// not in pb, which is why the two numbers travel together. SyncedAt is nil for an
+// organisation without a muso sync.
 type RosterStats struct {
 	Matched    int          `json:"matched"`
 	RosterSize int          `json:"rosterSize"`
@@ -245,4 +257,8 @@ type ListOrganisationsParams struct {
 
 type SiteSettings struct {
 	ShowOrganisationRecommendations bool `json:"showOrganisationRecommendations"`
+}
+
+type ReplaceOrganisationArtistsInput struct {
+	ArtistIDs []string `json:"artistIds" binding:"required"`
 }

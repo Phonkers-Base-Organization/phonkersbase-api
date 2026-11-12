@@ -158,6 +158,8 @@ func Run() error {
 		admin.POST("/organisation", h.CreateOrganisation)
 		admin.PUT("/organisation/:id", h.UpdateOrganisation)
 		admin.DELETE("/organisation/:id", h.DeleteOrganisation)
+		admin.GET("/organisation/:id/artists", h.GetOrganisationArtists)
+		admin.PUT("/organisation/:id/artists", h.ReplaceOrganisationArtists)
 
 		admin.PUT("/settings", h.UpdateSiteSettings)
 	}
