@@ -246,14 +246,16 @@ type UpsertOrganisationInput struct {
 }
 
 type ListOrganisationsParams struct {
-	Type   string
-	Search string
-	Limit  int
-	Offset int
+	Type      string
+	Search    string
+	Limit     int
+	Offset    int
+	HideEmpty bool
 }
 
 type SiteSettings struct {
 	ShowOrganisationRecommendations bool `json:"showOrganisationRecommendations"`
+	HideEmptyOrganisations          bool `json:"hideEmptyOrganisations"`
 }
 
 type ReplaceOrganisationArtistsInput struct {
