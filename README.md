@@ -168,6 +168,7 @@ ordered by name. Public endpoint.
 | `search` | string | Case-insensitive substring match on the organisation name |
 | `offset` | int | Pagination offset (default: `0`) |
 | `limit` | int | Page size, 1–500 (default: `50`); out-of-range values return `400` |
+| `hideEmpty` | bool | When `true`, drops organisations with no roster artists, except those with an origin in RU/BY (which are stamped rather than charted). `total` reflects the filtered list |
 
 **Response**
 
@@ -199,8 +200,8 @@ constraint and the API: `Не використовуй`, `Не слухай це
 
 ### GET `/api/v1/organisation/labels`, `/api/v1/organisation/distributors`, `/api/v1/organisation/cults`
 
-Type-specific shorthands for `/organisation/all?type=Label|Distributor|Cult`. Same `search`, `offset`
-and `limit` parameters, same response shape. Public endpoints.
+Type-specific shorthands for `/organisation/all?type=Label|Distributor|Cult`. Same `search`, `offset`,
+`limit` and `hideEmpty` parameters, same response shape. Public endpoints.
 
 ### Organisation CRUD (admin-only)
 

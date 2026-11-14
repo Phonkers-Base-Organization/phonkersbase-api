@@ -24,8 +24,9 @@ func (h *Handler) GetCultOrganisations(c *gin.Context) {
 
 func (h *Handler) getOrganisationsByType(c *gin.Context, orgType string) {
 	params := domain.ListOrganisationsParams{
-		Type:   orgType,
-		Search: c.Query("search"),
+		Type:      orgType,
+		Search:    c.Query("search"),
+		HideEmpty: c.Query("hideEmpty") == "true",
 	}
 	if v := c.Query("offset"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
@@ -51,8 +52,9 @@ func (h *Handler) getOrganisationsByType(c *gin.Context, orgType string) {
 
 func (h *Handler) GetOrganisations(c *gin.Context) {
 	params := domain.ListOrganisationsParams{
-		Type:   c.Query("type"),
-		Search: c.Query("search"),
+		Type:      c.Query("type"),
+		Search:    c.Query("search"),
+		HideEmpty: c.Query("hideEmpty") == "true",
 	}
 	if v := c.Query("offset"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
