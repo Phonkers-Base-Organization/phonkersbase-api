@@ -241,7 +241,7 @@ func (r *OrganisationRepo) replaceCountries(ctx context.Context, tx pgx.Tx, orgI
 	return nil
 }
 
-func (r *OrganisationRepo) fetchCountries(ctx context.Context, q artistLister, orgIDs []int) (map[int][]domain.ArtistCountry, error) {
+func (r *OrganisationRepo) fetchCountries(ctx context.Context, q querier, orgIDs []int) (map[int][]domain.ArtistCountry, error) {
 	rows, err := q.Query(ctx, `
 		-- name: organisation.fetch_countries
 		SELECT oc.organisation_id, oc.code, es.id, es.name, es.name_en
@@ -318,11 +318,11 @@ func (r *OrganisationRepo) GetArtists(ctx context.Context, id string) ([]domain.
 	return r.listArtists(ctx, r.db, orgID)
 }
 
-type artistLister interface {
+type querier interface {
 	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
 }
 
-func (r *OrganisationRepo) listArtists(ctx context.Context, q artistLister, orgID int) ([]domain.ArtistRef, error) {
+func (r *OrganisationRepo) listArtists(ctx context.Context, q querier, orgID int) ([]domain.ArtistRef, error) {
 	rows, err := q.Query(ctx, `
 		-- name: organisation.get_artists
 		SELECT a.id, a.name, a.avatar_url, a.spotify_id
