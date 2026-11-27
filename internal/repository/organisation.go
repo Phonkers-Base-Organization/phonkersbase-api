@@ -242,6 +242,9 @@ func (r *OrganisationRepo) replaceCountries(ctx context.Context, tx pgx.Tx, orgI
 }
 
 func (r *OrganisationRepo) fetchCountries(ctx context.Context, q querier, orgIDs []int) (map[int][]domain.ArtistCountry, error) {
+	if len(orgIDs) == 0 {
+		return map[int][]domain.ArtistCountry{}, nil
+	}
 	rows, err := q.Query(ctx, `
 		-- name: organisation.fetch_countries
 		SELECT oc.organisation_id, oc.code, es.id, es.name, es.name_en
