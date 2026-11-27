@@ -35,7 +35,7 @@ func (r *OrganisationRepo) GetAll(ctx context.Context, params domain.ListOrganis
 		SELECT COUNT(*) FROM organisations
 		WHERE ($1 = '' OR type = $1)
 		  AND ($2 = '' OR name ILIKE '%' || $2 || '%')
-		  AND (NOT $3 OR origin = ANY($4) OR EXISTS (SELECT 1 FROM organisation_artists oa WHERE oa.organisation_id = organisations.id))
+		  AND (NOT $3 OR EXISTS (SELECT 1 FROM organisation_countries oc WHERE oc.organisation_id = organisations.id AND oc.code = ANY($4)) OR EXISTS (SELECT 1 FROM organisation_artists oa WHERE oa.organisation_id = organisations.id))
 	`, params.Type, escapeLikePattern(params.Search), params.HideEmpty, domain.UnchartedOrigins()).Scan(&total)
 	if err != nil {
 		return nil, err
@@ -43,11 +43,11 @@ func (r *OrganisationRepo) GetAll(ctx context.Context, params domain.ListOrganis
 
 	rows, err := r.db.Query(ctx, `
 		-- name: organisation.get_all.items
-		SELECT id, name, link, origin, description_uk, description_en, notes, type, recommendation, created_at, updated_at
+		SELECT id, name, link, description_uk, description_en, notes, type, recommendation, created_at, updated_at
 		FROM organisations
 		WHERE ($1 = '' OR type = $1)
 		  AND ($2 = '' OR name ILIKE '%' || $2 || '%')
-		  AND (NOT $3 OR origin = ANY($4) OR EXISTS (SELECT 1 FROM organisation_artists oa WHERE oa.organisation_id = organisations.id))
+		  AND (NOT $3 OR EXISTS (SELECT 1 FROM organisation_countries oc WHERE oc.organisation_id = organisations.id AND oc.code = ANY($4)) OR EXISTS (SELECT 1 FROM organisation_artists oa WHERE oa.organisation_id = organisations.id))
 		ORDER BY name ASC
 		LIMIT $5 OFFSET $6
 	`, params.Type, escapeLikePattern(params.Search), params.HideEmpty, domain.UnchartedOrigins(), limit, params.Offset)
@@ -63,7 +63,7 @@ func (r *OrganisationRepo) GetAll(ctx context.Context, params domain.ListOrganis
 			id int
 			o  domain.Organisation
 		)
-		if err := rows.Scan(&id, &o.Name, &o.Link, &o.Origin, &o.DescriptionUk, &o.DescriptionEn, &o.Notes, &o.Type, &o.Recommendation, &o.CreatedAt, &o.UpdatedAt); err != nil {
+		if err := rows.Scan(&id, &o.Name, &o.Link, &o.DescriptionUk, &o.DescriptionEn, &o.Notes, &o.Type, &o.Recommendation, &o.CreatedAt, &o.UpdatedAt); err != nil {
 			return nil, err
 		}
 		o.ID = strconv.Itoa(id)
@@ -74,11 +74,16 @@ func (r *OrganisationRepo) GetAll(ctx context.Context, params domain.ListOrganis
 		return nil, err
 	}
 
+	countries, err := r.fetchCountries(ctx, r.db, orgIDs)
+	if err != nil {
+		return nil, err
+	}
 	rosterStats, err := r.rosterStatsFor(ctx, orgIDs)
 	if err != nil {
 		return nil, err
 	}
 	for i, id := range orgIDs {
+		items[i].Countries = countries[id]
 		if stats, ok := rosterStats[id]; ok {
 			items[i].RosterStats = &stats
 		}
@@ -107,11 +112,11 @@ func (r *OrganisationRepo) GetByID(ctx context.Context, id string) (*domain.Orga
 	var oid int
 	err := r.db.QueryRow(ctx, `
 		-- name: organisation.get_by_id
-		SELECT id, name, link, origin, description_uk, description_en, notes, type, recommendation, created_at, updated_at
+		SELECT id, name, link, description_uk, description_en, notes, type, recommendation, created_at, updated_at
 		FROM organisations
 		WHERE id = $1
 	`, id).Scan(
-		&oid, &o.Name, &o.Link, &o.Origin, &o.DescriptionUk, &o.DescriptionEn, &o.Notes, &o.Type, &o.Recommendation, &o.CreatedAt, &o.UpdatedAt,
+		&oid, &o.Name, &o.Link, &o.DescriptionUk, &o.DescriptionEn, &o.Notes, &o.Type, &o.Recommendation, &o.CreatedAt, &o.UpdatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -120,6 +125,11 @@ func (r *OrganisationRepo) GetByID(ctx context.Context, id string) (*domain.Orga
 		return nil, err
 	}
 	o.ID = strconv.Itoa(oid)
+	countries, err := r.fetchCountries(ctx, r.db, []int{oid})
+	if err != nil {
+		return nil, err
+	}
+	o.Countries = countries[oid]
 	rosterStats, err := r.rosterStatsFor(ctx, []int{oid})
 	if err != nil {
 		return nil, err
@@ -133,14 +143,20 @@ func (r *OrganisationRepo) GetByID(ctx context.Context, id string) (*domain.Orga
 func (r *OrganisationRepo) Create(ctx context.Context, input domain.UpsertOrganisationInput) (*domain.Organisation, error) {
 	var o domain.Organisation
 	var id int
-	err := r.db.QueryRow(ctx, `
-		-- name: organisation.create
-		INSERT INTO organisations (name, link, origin, description_uk, description_en, notes, type, recommendation)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-		RETURNING id, name, link, origin, description_uk, description_en, notes, type, recommendation, created_at, updated_at
-	`, input.Name, input.Link, input.Origin, input.DescriptionUk, input.DescriptionEn, input.Notes, input.Type, input.Recommendation).Scan(
-		&id, &o.Name, &o.Link, &o.Origin, &o.DescriptionUk, &o.DescriptionEn, &o.Notes, &o.Type, &o.Recommendation, &o.CreatedAt, &o.UpdatedAt,
-	)
+	err := pgx.BeginFunc(ctx, r.db, func(tx pgx.Tx) error {
+		err := tx.QueryRow(ctx, `
+			-- name: organisation.create
+			INSERT INTO organisations (name, link, description_uk, description_en, notes, type, recommendation)
+			VALUES ($1, $2, $3, $4, $5, $6, $7)
+			RETURNING id, name, link, description_uk, description_en, notes, type, recommendation, created_at, updated_at
+		`, input.Name, input.Link, input.DescriptionUk, input.DescriptionEn, input.Notes, input.Type, input.Recommendation).Scan(
+			&id, &o.Name, &o.Link, &o.DescriptionUk, &o.DescriptionEn, &o.Notes, &o.Type, &o.Recommendation, &o.CreatedAt, &o.UpdatedAt,
+		)
+		if err != nil {
+			return err
+		}
+		return r.saveCountries(ctx, tx, id, &o, input.Countries)
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -151,15 +167,21 @@ func (r *OrganisationRepo) Create(ctx context.Context, input domain.UpsertOrgani
 func (r *OrganisationRepo) Update(ctx context.Context, id string, input domain.UpsertOrganisationInput) (*domain.Organisation, error) {
 	var o domain.Organisation
 	var oid int
-	err := r.db.QueryRow(ctx, `
-		-- name: organisation.update
-		UPDATE organisations
-		SET name = $1, link = $2, origin = $3, description_uk = $4, description_en = $5, notes = $6, type = $7, recommendation = $8
-		WHERE id = $9
-		RETURNING id, name, link, origin, description_uk, description_en, notes, type, recommendation, created_at, updated_at
-	`, input.Name, input.Link, input.Origin, input.DescriptionUk, input.DescriptionEn, input.Notes, input.Type, input.Recommendation, id).Scan(
-		&oid, &o.Name, &o.Link, &o.Origin, &o.DescriptionUk, &o.DescriptionEn, &o.Notes, &o.Type, &o.Recommendation, &o.CreatedAt, &o.UpdatedAt,
-	)
+	err := pgx.BeginFunc(ctx, r.db, func(tx pgx.Tx) error {
+		err := tx.QueryRow(ctx, `
+			-- name: organisation.update
+			UPDATE organisations
+			SET name = $1, link = $2, description_uk = $3, description_en = $4, notes = $5, type = $6, recommendation = $7
+			WHERE id = $8
+			RETURNING id, name, link, description_uk, description_en, notes, type, recommendation, created_at, updated_at
+		`, input.Name, input.Link, input.DescriptionUk, input.DescriptionEn, input.Notes, input.Type, input.Recommendation, id).Scan(
+			&oid, &o.Name, &o.Link, &o.DescriptionUk, &o.DescriptionEn, &o.Notes, &o.Type, &o.Recommendation, &o.CreatedAt, &o.UpdatedAt,
+		)
+		if err != nil {
+			return err
+		}
+		return r.saveCountries(ctx, tx, oid, &o, input.Countries)
+	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNotFound
@@ -168,6 +190,106 @@ func (r *OrganisationRepo) Update(ctx context.Context, id string, input domain.U
 	}
 	o.ID = strconv.Itoa(oid)
 	return &o, nil
+}
+
+func (r *OrganisationRepo) saveCountries(ctx context.Context, tx pgx.Tx, orgID int, o *domain.Organisation, countries []domain.ArtistCountryInput) error {
+	if err := r.replaceCountries(ctx, tx, orgID, countries); err != nil {
+		return err
+	}
+	saved, err := r.fetchCountries(ctx, tx, []int{orgID})
+	if err != nil {
+		return err
+	}
+	o.Countries = saved[orgID]
+	return nil
+}
+
+func (r *OrganisationRepo) replaceCountries(ctx context.Context, tx pgx.Tx, orgID int, countries []domain.ArtistCountryInput) error {
+	_, err := tx.Exec(ctx, `
+		-- name: organisation.replace_countries.delete
+		DELETE FROM organisation_countries WHERE organisation_id = $1
+	`, orgID)
+	if err != nil {
+		return err
+	}
+	for i, c := range countries {
+		_, err := tx.Exec(ctx, `
+			-- name: organisation.replace_countries.insert_country
+			INSERT INTO organisation_countries (organisation_id, code, position)
+			VALUES ($1, $2, $3)
+			ON CONFLICT (organisation_id, code) DO NOTHING
+		`, orgID, c.Code, i)
+		if err != nil {
+			return err
+		}
+		for _, sid := range c.SourceIDs {
+			n, err := strconv.Atoi(sid)
+			if err != nil {
+				continue
+			}
+			_, err = tx.Exec(ctx, `
+				-- name: organisation.replace_countries.insert_source
+				INSERT INTO organisation_country_sources (organisation_id, code, source_id)
+				VALUES ($1, $2, $3)
+				ON CONFLICT DO NOTHING
+			`, orgID, c.Code, n)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (r *OrganisationRepo) fetchCountries(ctx context.Context, q artistLister, orgIDs []int) (map[int][]domain.ArtistCountry, error) {
+	rows, err := q.Query(ctx, `
+		-- name: organisation.fetch_countries
+		SELECT oc.organisation_id, oc.code, es.id, es.name, es.name_en
+		FROM organisation_countries oc
+		LEFT JOIN organisation_country_sources ocs ON ocs.organisation_id = oc.organisation_id AND ocs.code = oc.code
+		LEFT JOIN evidence_sources es ON es.id = ocs.source_id
+		WHERE oc.organisation_id = ANY($1)
+		ORDER BY oc.position ASC, ocs.source_id ASC
+	`, orgIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	type countryKey struct {
+		orgID int
+		code  string
+	}
+	result := map[int][]domain.ArtistCountry{}
+	index := map[countryKey]int{}
+
+	for rows.Next() {
+		var (
+			orgID        int
+			code         string
+			sourceID     *int
+			sourceName   *string
+			sourceNameEn *string
+		)
+		if err := rows.Scan(&orgID, &code, &sourceID, &sourceName, &sourceNameEn); err != nil {
+			return nil, err
+		}
+		k := countryKey{orgID, code}
+		i, ok := index[k]
+		if !ok {
+			i = len(result[orgID])
+			index[k] = i
+			result[orgID] = append(result[orgID], domain.ArtistCountry{Code: code, Sources: []domain.SourceRef{}})
+		}
+		if sourceID != nil {
+			result[orgID][i].Sources = append(result[orgID][i].Sources, domain.SourceRef{
+				ID:     strconv.Itoa(*sourceID),
+				Name:   *sourceName,
+				NameEn: derefStr(sourceNameEn),
+			})
+		}
+	}
+	return result, rows.Err()
 }
 
 func (r *OrganisationRepo) Delete(ctx context.Context, id string) error {
@@ -351,10 +473,13 @@ func (r *OrganisationRepo) rosterStatsFor(ctx context.Context, orgIDs []int) (ma
 			LEFT JOIN roster ro ON ro.organisation_id = o.id
 			LEFT JOIN primary_country pc ON pc.artist_id = ro.artist_id
 			-- An empty list with no recorded roster size is nothing to chart, so it reads as
-			-- absent rather than as stats full of zeroes. Excluded origins read as
-			-- absent too, including any organisation synced before its origin was
-			-- set to one of them.
-			WHERE o.id = ANY($1) AND o.origin <> ALL($5)
+			-- absent rather than as stats full of zeroes. Organisations with any
+			-- uncharted country read as absent too, including any organisation synced
+			-- before it was given one of them.
+			WHERE o.id = ANY($1) AND NOT EXISTS (
+				SELECT 1 FROM organisation_countries oc
+				WHERE oc.organisation_id = o.id AND oc.code = ANY($5)
+			)
 			GROUP BY o.id
 			HAVING COUNT(ro.artist_id) > 0 OR o.roster_size > 0
 		)

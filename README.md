@@ -168,7 +168,7 @@ ordered by name. Public endpoint.
 | `search` | string | Case-insensitive substring match on the organisation name |
 | `offset` | int | Pagination offset (default: `0`) |
 | `limit` | int | Page size, 1–500 (default: `50`); out-of-range values return `400` |
-| `hideEmpty` | bool | When `true`, drops organisations with no roster artists, except those with an origin in RU/BY (which are stamped rather than charted). `total` reflects the filtered list |
+| `hideEmpty` | bool | When `true`, drops organisations with no roster artists, except those with RU/BY among their countries (which are stamped rather than charted). `total` reflects the filtered list |
 
 **Response**
 
@@ -179,7 +179,7 @@ ordered by name. Public endpoint.
       "id": "1",
       "name": "Example Records",
       "link": "https://...",
-      "origin": "RU",
+      "countries": [{ "code": "RU", "sources": [{ "id": "1", "name": "...", "nameEn": "..." }] }],
       "description": "...",
       "descriptionEn": "...",
       "notes": "...",
@@ -215,7 +215,7 @@ one, `DELETE` returns `204`; a missing `:id` returns `404`.
 {
   "name": "Example Records",
   "link": "https://...",
-  "origin": "RU",
+  "countries": [{ "code": "RU", "sourceIds": ["1"] }],
   "description": "...",
   "descriptionEn": "...",
   "notes": "...",
@@ -224,7 +224,7 @@ one, `DELETE` returns `204`; a missing `:id` returns `404`.
 }
 ```
 
-`name`, `origin`, `type` and `recommendation` are required; an unrecognized `recommendation` returns `400`.
+`name`, `countries` (at least one), `type` and `recommendation` are required; an unrecognized `recommendation` returns `400`.
 All three mutations are recorded in the change history.
 
 ### GET `/api/v1/history`
