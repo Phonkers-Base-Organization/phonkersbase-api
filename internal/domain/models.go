@@ -191,9 +191,9 @@ const (
 	CountryBelarus = "BY"
 )
 
-// UnchartedOrigins lists the countries that make an organisation uncharted when
+// UnchartedCountries lists the countries that make an organisation uncharted when
 // it has any of them. The site stamps those organisations instead of charting them.
-func UnchartedOrigins() []string {
+func UnchartedCountries() []string {
 	return []string{CountryRussia, CountryBelarus}
 }
 

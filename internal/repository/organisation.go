@@ -36,7 +36,7 @@ func (r *OrganisationRepo) GetAll(ctx context.Context, params domain.ListOrganis
 		WHERE ($1 = '' OR type = $1)
 		  AND ($2 = '' OR name ILIKE '%' || $2 || '%')
 		  AND (NOT $3 OR EXISTS (SELECT 1 FROM organisation_countries oc WHERE oc.organisation_id = organisations.id AND oc.code = ANY($4)) OR EXISTS (SELECT 1 FROM organisation_artists oa WHERE oa.organisation_id = organisations.id))
-	`, params.Type, escapeLikePattern(params.Search), params.HideEmpty, domain.UnchartedOrigins()).Scan(&total)
+	`, params.Type, escapeLikePattern(params.Search), params.HideEmpty, domain.UnchartedCountries()).Scan(&total)
 	if err != nil {
 		return nil, err
 	}
@@ -50,7 +50,7 @@ func (r *OrganisationRepo) GetAll(ctx context.Context, params domain.ListOrganis
 		  AND (NOT $3 OR EXISTS (SELECT 1 FROM organisation_countries oc WHERE oc.organisation_id = organisations.id AND oc.code = ANY($4)) OR EXISTS (SELECT 1 FROM organisation_artists oa WHERE oa.organisation_id = organisations.id))
 		ORDER BY name ASC
 		LIMIT $5 OFFSET $6
-	`, params.Type, escapeLikePattern(params.Search), params.HideEmpty, domain.UnchartedOrigins(), limit, params.Offset)
+	`, params.Type, escapeLikePattern(params.Search), params.HideEmpty, domain.UnchartedCountries(), limit, params.Offset)
 	if err != nil {
 		return nil, err
 	}
@@ -490,7 +490,7 @@ func (r *OrganisationRepo) rosterStatsFor(ctx context.Context, orgIDs []int) (ma
 			t.country_unknown
 		FROM totals t
 		LEFT JOIN country_lists cl ON cl.organisation_id = t.organisation_id
-	`, orgIDs, listenLabelBlocked, listenLabelWarning, listenLabelsApproved, domain.UnchartedOrigins())
+	`, orgIDs, listenLabelBlocked, listenLabelWarning, listenLabelsApproved, domain.UnchartedCountries())
 	if err != nil {
 		return nil, err
 	}
