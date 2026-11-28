@@ -203,10 +203,10 @@ constraint and the API: `Не використовуй`, `Не слухай це
 Type-specific shorthands for `/organisation/all?type=Label|Distributor|Cult`. Same `search`, `offset`,
 `limit` and `hideEmpty` parameters, same response shape. Public endpoints.
 
-### Organisation CRUD (admin-only)
+### Organisation CRUD
 
-`POST /api/v1/organisation`, `PUT /api/v1/organisation/:id`, `DELETE /api/v1/organisation/:id` — require
-the `ADMIN` role. `POST` returns `201` with the created organisation, `PUT` returns `200` with the updated
+`POST /api/v1/organisation` and `DELETE /api/v1/organisation/:id` require the `ADMIN` role;
+`PUT /api/v1/organisation/:id` is open to any authenticated user (`ADMIN` or `EDITOR`). `POST` returns `201` with the created organisation, `PUT` returns `200` with the updated
 one, `DELETE` returns `204`; a missing `:id` returns `404`.
 
 **Request body** (`POST` and `PUT`)
