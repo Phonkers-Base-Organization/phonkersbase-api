@@ -227,6 +227,21 @@ one, `DELETE` returns `204`; a missing `:id` returns `404`.
 `name`, `countries` (at least one), `type` and `recommendation` are required; an unrecognized `recommendation` returns `400`.
 All three mutations are recorded in the change history.
 
+### Site settings
+
+`GET /api/v1/settings` (public) returns the site-wide display flags; `PUT /api/v1/settings` (`ADMIN`) replaces them
+all and returns the stored values.
+
+```json
+{
+  "showOrganisationRecommendations": true,
+  "hideEmptyOrganisations": false,
+  "hideDistributorsAndCults": true
+}
+```
+
+`hideDistributorsAndCults` defaults to `true`. It tells the site to hide distributors and cults.
+
 ### GET `/api/v1/history`
 
 Returns a paginated change log of admin mutations, newest first (`created_at DESC, id DESC`).

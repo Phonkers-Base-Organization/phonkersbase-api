@@ -256,6 +256,7 @@ type ListOrganisationsParams struct {
 type SiteSettings struct {
 	ShowOrganisationRecommendations bool `json:"showOrganisationRecommendations"`
 	HideEmptyOrganisations          bool `json:"hideEmptyOrganisations"`
+	HideDistributorsAndCults        bool `json:"hideDistributorsAndCults"`
 }
 
 type ReplaceOrganisationArtistsInput struct {
