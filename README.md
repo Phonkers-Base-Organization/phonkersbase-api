@@ -227,21 +227,6 @@ one, `DELETE` returns `204`; a missing `:id` returns `404`.
 `name`, `countries` (at least one), `type` and `recommendation` are required; an unrecognized `recommendation` returns `400`.
 All three mutations are recorded in the change history.
 
-### Site settings
-
-`GET /api/v1/settings` (public) returns the site-wide display flags; `PUT /api/v1/settings` (`ADMIN`) replaces them
-all and returns the stored values.
-
-```json
-{
-  "showOrganisationRecommendations": true,
-  "hideEmptyOrganisations": false,
-  "hideDistributorsAndCults": true
-}
-```
-
-`hideDistributorsAndCults` defaults to `true`. It tells the site to hide distributors and cults.
-
 ### GET `/api/v1/history`
 
 Returns a paginated change log of admin mutations, newest first (`created_at DESC, id DESC`).
@@ -295,9 +280,8 @@ Requires authentication (any valid JWT).
 { "items": ["admin", "editor1"] }
 ```
 
-### Other endpoints
+### Admin-only endpoints (require `ADMIN` role)
 
-- `PUT` `/api/v1/organisation/:id` — organisation update (protected, any authenticated user)
 - `POST`/`PUT`/`DELETE` `/api/v1/label`, `/api/v1/label/:id` — label CRUD (protected, any authenticated user)
 - `POST`/`PUT`/`DELETE` `/api/v1/source`, `/api/v1/source/:id` — evidence source CRUD (admin-only)
 - `GET`/`POST`/`PUT`/`DELETE` `/api/v1/artist/admin/all`, `/api/v1/artist`, `/api/v1/artist/:id` — artist CRUD and admin listing (protected)
