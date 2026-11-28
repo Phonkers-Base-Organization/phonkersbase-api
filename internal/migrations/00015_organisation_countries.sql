@@ -18,7 +18,11 @@ SELECT id, origin, 0 FROM organisations;
 
 ALTER TABLE organisations DROP COLUMN origin;
 
+ALTER TABLE site_settings ADD COLUMN hide_distributors_and_cults BOOLEAN NOT NULL DEFAULT true;
+
 ---- create above / drop below ----
+
+ALTER TABLE site_settings DROP COLUMN hide_distributors_and_cults;
 
 ALTER TABLE organisations ADD COLUMN origin TEXT;
 
