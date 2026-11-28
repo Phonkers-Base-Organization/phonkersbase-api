@@ -174,7 +174,7 @@ type Organisation struct {
 	ID             string            `json:"id"`
 	Name           string            `json:"name"`
 	Link           *string           `json:"link"`
-	Origin         string            `json:"origin"`
+	Countries      []ArtistCountry   `json:"countries"`
 	DescriptionUk  *string           `json:"description"`
 	DescriptionEn  *string           `json:"descriptionEn"`
 	Notes          *string           `json:"notes"`
@@ -185,15 +185,15 @@ type Organisation struct {
 	UpdatedAt      time.Time         `json:"updatedAt"`
 }
 
-// Country codes of the origins the site flags outright.
+// Country codes the site flags outright.
 const (
 	CountryRussia  = "RU"
 	CountryBelarus = "BY"
 )
 
-// UnchartedOrigins lists the origins whose organisations get no roster stats.
-// The site stamps those organisations instead of charting them.
-func UnchartedOrigins() []string {
+// UnchartedCountries lists the countries that make an organisation uncharted when
+// it has any of them. The site stamps those organisations instead of charting them.
+func UnchartedCountries() []string {
 	return []string{CountryRussia, CountryBelarus}
 }
 
@@ -235,14 +235,14 @@ type PaginatedOrganisations struct {
 }
 
 type UpsertOrganisationInput struct {
-	Name           string            `json:"name" binding:"required"`
-	Link           *string           `json:"link"`
-	Origin         string            `json:"origin" binding:"required"`
-	DescriptionUk  *string           `json:"description"`
-	DescriptionEn  *string           `json:"descriptionEn"`
-	Notes          *string           `json:"notes"`
-	Type           string            `json:"type" binding:"required"`
-	Recommendation OrgRecommendation `json:"recommendation" binding:"required"`
+	Name           string               `json:"name" binding:"required"`
+	Link           *string              `json:"link"`
+	Countries      []ArtistCountryInput `json:"countries" binding:"required,min=1,dive"`
+	DescriptionUk  *string              `json:"description"`
+	DescriptionEn  *string              `json:"descriptionEn"`
+	Notes          *string              `json:"notes"`
+	Type           string               `json:"type" binding:"required"`
+	Recommendation OrgRecommendation    `json:"recommendation" binding:"required"`
 }
 
 type ListOrganisationsParams struct {
@@ -256,6 +256,7 @@ type ListOrganisationsParams struct {
 type SiteSettings struct {
 	ShowOrganisationRecommendations bool `json:"showOrganisationRecommendations"`
 	HideEmptyOrganisations          bool `json:"hideEmptyOrganisations"`
+	HideDistributorsAndCults        bool `json:"hideDistributorsAndCults"`
 }
 
 type ReplaceOrganisationArtistsInput struct {
